@@ -526,7 +526,7 @@ function NewInvestigationModal({ onClose, onCreate }) {
 }
 
 // ── CALCULATIONS TAB ──────────────────────────────────────────────────────────
-function CalculationsTab({ project, onSave }) {
+function CalculationsTab({ project, onSaveCalc }) {
   const [selectedSources, setSelectedSources] = useState([]);
   const [calcType, setCalcType] = useState('cross');
   const [prompt, setPrompt] = useState('');
@@ -567,13 +567,15 @@ ${dataContext ? `\n\n## Datos disponibles de las investigaciones seleccionadas:\
     setLoading(false);
   }
 
-  function saveCalc() {
+  async function saveCalc() {
     if(!result) return;
-    const newCalc = { id:'c'+Date.now(), title:prompt.slice(0,60), type:calcType, prompt, result, created_at:new Date().toISOString() };
-    const updated = [newCalc, ...saved];
-    setSaved(updated);
-    onSave(updated);
-    setResult(null); setPrompt('');
+    const calc = await onSaveCalc(
+      prompt.slice(0,60), calcType, prompt, result, selectedSources
+    );
+    if(calc) {
+      setSaved(s=>[calc,...s]);
+      setResult(null); setPrompt(''); setSelectedSources([]);
+    }
   }
 
   if(viewCalc) return (
@@ -673,32 +675,80 @@ ${dataContext ? `\n\n## Datos disponibles de las investigaciones seleccionadas:\
   );
 }
 
+// ── SUPABASE DATA LAYER ───────────────────────────────────────────────────────
+async function dbLoadProjects(userId) {
+  const { data: projects, error } = await supabase
+    .from('projects').select('*').eq('user_id', userId).order('created_at', { ascending: false });
+  if (error) throw error;
+  const full = await Promise.all(projects.map(async p => {
+    const [{ data: investigations }, { data: calculations }] = await Promise.all([
+      supabase.from('investigations').select('*').eq('project_id', p.id).order('created_at', { ascending: false }),
+      supabase.from('calculations').select('*').eq('project_id', p.id).order('created_at', { ascending: false }),
+    ]);
+    return { ...p, investigations: investigations||[], calculations: calculations||[] };
+  }));
+  return full;
+}
+async function dbCreateProject(userId, name, description) {
+  const { data, error } = await supabase.from('projects')
+    .insert({ user_id: userId, name, description }).select().single();
+  if (error) throw error;
+  return { ...data, investigations:[], calculations:[] };
+}
+async function dbCreateInvestigation(userId, projectId, topic, messages) {
+  const { data, error } = await supabase.from('investigations')
+    .insert({ user_id: userId, project_id: projectId, topic, messages, summary:'Nueva investigación' }).select().single();
+  if (error) throw error;
+  return data;
+}
+async function dbUpdateInvestigation(invId, messages, summary) {
+  const { error } = await supabase.from('investigations')
+    .update({ messages, summary }).eq('id', invId);
+  if (error) throw error;
+}
+async function dbCreateCalculation(userId, projectId, title, type, prompt, result, sources) {
+  const { data, error } = await supabase.from('calculations')
+    .insert({ user_id: userId, project_id: projectId, title, type, prompt, result, sources }).select().single();
+  if (error) throw error;
+  return data;
+}
+
 // ── PROJECT PAGE ──────────────────────────────────────────────────────────────
-function ProjectPage({ project, onBack, onUpdate }) {
+function ProjectPage({ project, onBack, onUpdate, onCreateInv, onUpdateInv, onCreateCalc }) {
   const [tab, setTab] = useState('investigations');
   const [showNewInv, setShowNewInv] = useState(false);
   const [activeInv, setActiveInv] = useState(null);
   const [proj, setProj] = useState(project);
+  const [saving, setSaving] = useState(false);
 
-  function createInvestigation(topic, firstQ) {
+  async function createInvestigation(topic, firstQ) {
+    setSaving(true);
     const msgs = firstQ ? [{role:'user',content:firstQ}] : [];
-    const inv = { id:'i'+Date.now(), topic, summary:'Nueva investigación', messages:msgs, created_at:new Date().toISOString() };
-    const updated = { ...proj, investigations:[inv,...(proj.investigations||[])] };
-    setProj(updated); onUpdate(updated);
-    setShowNewInv(false);
-    setActiveInv(inv);
-    setTab('investigations');
+    try {
+      const inv = await onCreateInv(proj.id, topic, msgs);
+      const updated = { ...proj, investigations:[inv,...(proj.investigations||[])] };
+      setProj(updated); onUpdate(updated);
+      setShowNewInv(false);
+      setActiveInv(inv);
+      setTab('investigations');
+    } catch(e) { alert('Error al crear investigación: '+e.message); }
+    setSaving(false);
   }
 
-  function updateInvestigation(id, messages, summary) {
+  async function updateInvestigation(id, messages, summary) {
     const invs = proj.investigations.map(i=>i.id===id?{...i,messages,summary}:i);
     const updated = {...proj, investigations:invs};
     setProj(updated); onUpdate(updated);
+    try { await onUpdateInv(id, messages, summary); } catch(e) { console.error(e); }
   }
 
-  function saveCalculations(calculations) {
-    const updated = {...proj, calculations};
-    setProj(updated); onUpdate(updated);
+  async function saveCalculation(title, type, prompt, result, sources) {
+    try {
+      const calc = await onCreateCalc(proj.id, title, type, prompt, result, sources);
+      const updated = {...proj, calculations:[calc,...(proj.calculations||[])]};
+      setProj(updated); onUpdate(updated);
+      return calc;
+    } catch(e) { alert('Error al guardar: '+e.message); }
   }
 
   const invs = proj.investigations||[];
@@ -745,9 +795,9 @@ function ProjectPage({ project, onBack, onUpdate }) {
                 }
               </>
         )}
-        {tab==='calculations'&&<CalculationsTab project={proj} onSave={saveCalculations}/>}
+        {tab==='calculations'&&<CalculationsTab project={proj} onSaveCalc={saveCalculation}/>}
       </div>
-      {showNewInv&&<NewInvestigationModal onClose={()=>setShowNewInv(false)} onCreate={createInvestigation}/>}
+      {showNewInv&&<NewInvestigationModal onClose={()=>setShowNewInv(false)} onCreate={createInvestigation} saving={saving}/>}
     </div>
   );
 }
@@ -798,10 +848,14 @@ function App() {
   const [showNewProject, setShowNewProject] = useState(false);
   const [demoMode, setDemoMode] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
+  const [dataLoading, setDataLoading] = useState(false);
+  const [dbError, setDbError] = useState(null);
 
   useEffect(()=>{
     if(!isConfigured){ setAuthLoading(false); return; }
-    supabase.auth.getSession().then(({data:{session}})=>{ setUser(session?.user||null); setAuthLoading(false); });
+    supabase.auth.getSession().then(({data:{session}})=>{
+      setUser(session?.user||null); setAuthLoading(false);
+    });
     const {data:{subscription}} = supabase.auth.onAuthStateChange((_,s)=>{ setUser(s?.user||null); });
     return ()=>subscription.unsubscribe();
   },[]);
@@ -812,27 +866,42 @@ function App() {
 
   useEffect(()=>{
     if(!user||demoMode||!isConfigured) return;
-    const stored = localStorage.getItem(`rl_projects_${user.id}`);
-    if(stored) try{ setProjects(JSON.parse(stored)); }catch(e){}
-  },[user,demoMode]);
+    setDataLoading(true); setDbError(null);
+    dbLoadProjects(user.id)
+      .then(ps=>{ setProjects(ps); setDataLoading(false); })
+      .catch(e=>{ setDbError(e.message); setDataLoading(false); });
+  },[user, demoMode]);
 
-  function saveProjects(ps) {
-    setProjects(ps);
-    if(user&&!demoMode&&isConfigured) localStorage.setItem(`rl_projects_${user.id}`,JSON.stringify(ps));
-  }
-
-  function createProject(name, desc) {
-    const p = { id:'p'+Date.now(), name, description:desc, created_at:new Date().toISOString(), investigations:[], calculations:[] };
-    const updated = [p,...projects];
-    saveProjects(updated);
-    setShowNewProject(false);
-    setActiveProject(p);
+  async function createProject(name, desc) {
+    if(demoMode){
+      const p={id:'p'+Date.now(),name,description:desc,created_at:new Date().toISOString(),investigations:[],calculations:[]};
+      setProjects(ps=>[p,...ps]); setShowNewProject(false); setActiveProject(p); return;
+    }
+    try {
+      const p = await dbCreateProject(user.id, name, desc);
+      setProjects(ps=>[p,...ps]); setShowNewProject(false); setActiveProject(p);
+    } catch(e){ setDbError(e.message); }
   }
 
   function updateProject(updated) {
-    const ps = projects.map(p=>p.id===updated.id?updated:p);
-    saveProjects(ps);
+    setProjects(ps=>ps.map(p=>p.id===updated.id?updated:p));
     setActiveProject(updated);
+  }
+
+  async function handleCreateInv(projectId, topic, messages) {
+    if(demoMode) return {id:'i'+Date.now(),topic,summary:'Nueva investigación',messages,created_at:new Date().toISOString()};
+    return await dbCreateInvestigation(user.id, projectId, topic, messages);
+  }
+
+  async function handleUpdateInv(invId, messages, summary) {
+    if(demoMode||!isConfigured) return;
+    try { await dbUpdateInvestigation(invId, messages, summary); }
+    catch(e){ setDbError(e.message); }
+  }
+
+  async function handleCreateCalc(projectId, title, type, prompt, result, sources) {
+    if(demoMode) return {id:'c'+Date.now(),title,type,prompt,result,sources,created_at:new Date().toISOString()};
+    return await dbCreateCalculation(user.id, projectId, title, type, prompt, result, sources);
   }
 
   async function signOut() {
@@ -841,7 +910,14 @@ function App() {
     setUser(null); setProjects([]); setActiveProject(null);
   }
 
-  if(authLoading) return <div style={{display:'grid',placeItems:'center',height:'100vh',color:'var(--muted)',fontSize:'.7rem'}}>Cargando…</div>;
+  if(authLoading) return (
+    <div style={{display:'grid',placeItems:'center',height:'100vh',gap:'.8rem'}}>
+      <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:'.6rem'}}>
+        <div style={{fontFamily:'Syne,sans-serif',fontWeight:800,fontSize:'1.4rem',letterSpacing:'-.03em'}}>Research<span style={{color:'var(--accent)'}}>Lab</span></div>
+        <div style={{display:'flex',gap:'4px'}}><div className="dot"/><div className="dot"/><div className="dot"/></div>
+      </div>
+    </div>
+  );
   if(!user&&!demoMode) return <AuthPage onDemoMode={()=>setDemoMode(true)}/>;
 
   return (
@@ -851,15 +927,34 @@ function App() {
         <div className="header-right">
           {demoMode&&<span style={{fontSize:'.58rem',background:'rgba(212,130,15,.1)',color:'var(--amber)',border:'1px solid rgba(212,130,15,.25)',padding:'.2rem .5rem',borderRadius:2,letterSpacing:'.08em'}}>DEMO</span>}
           {activeProject&&<button className="btn btn-ghost" onClick={()=>setActiveProject(null)}>← Proyectos</button>}
-          <div className="avatar" title={user?.email} onClick={signOut} style={{cursor:'pointer'}} title="Cerrar sesión">
+          <div className="avatar" onClick={signOut} title="Cerrar sesión">
             {(user?.email?.[0]||user?.name?.[0]||'U').toUpperCase()}
           </div>
         </div>
       </header>
-      {activeProject
-        ? <ProjectPage project={activeProject} onBack={()=>setActiveProject(null)} onUpdate={updateProject}/>
-        : <Dashboard user={user} projects={projects} onNewProject={()=>setShowNewProject(true)} onSelectProject={p=>{setActiveProject(p);}} onSignOut={signOut}/>
-      }
+      {dbError&&(
+        <div style={{background:'rgba(201,79,44,.08)',border:'1px solid rgba(201,79,44,.25)',color:'var(--accent)',padding:'.5rem 1.6rem',fontSize:'.65rem',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+          <span>⚠ Error de base de datos: {dbError}</span>
+          <button onClick={()=>setDbError(null)} style={{background:'none',border:'none',cursor:'pointer',color:'var(--accent)',fontSize:'1rem'}}>✕</button>
+        </div>
+      )}
+      {dataLoading ? (
+        <div style={{display:'grid',placeItems:'center',flex:1,color:'var(--muted)',fontSize:'.7rem',gap:'.5rem'}}>
+          <div style={{display:'flex',gap:'4px'}}><div className="dot"/><div className="dot"/><div className="dot"/></div>
+          <span>Cargando proyectos…</span>
+        </div>
+      ) : activeProject ? (
+        <ProjectPage
+          project={activeProject}
+          onBack={()=>setActiveProject(null)}
+          onUpdate={updateProject}
+          onCreateInv={handleCreateInv}
+          onUpdateInv={handleUpdateInv}
+          onCreateCalc={handleCreateCalc}
+        />
+      ) : (
+        <Dashboard user={user} projects={projects} onNewProject={()=>setShowNewProject(true)} onSelectProject={p=>setActiveProject(p)} onSignOut={signOut}/>
+      )}
       {showNewProject&&<NewProjectModal onClose={()=>setShowNewProject(false)} onCreate={createProject}/>}
     </div>
   );
