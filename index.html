@@ -7,6 +7,13 @@
 <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7/babel.min.js"></script>
+<!-- Supabase loaded in a blocking module script BEFORE Babel runs -->
+<script type="module">
+  import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+  window.__createSupabaseClient = createClient;
+  window.__supabaseLoaded = true;
+  document.dispatchEvent(new Event('supabase-ready'));
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Fira+Code:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -243,18 +250,23 @@ const SUPABASE_ANON_KEY = 'sb_publishable_oU7n1cAVs2YiFbTIIxz3gg_rHCFZLkr';
 const isConfigured = SUPABASE_URL !== 'YOUR_SUPABASE_URL';
 let supabase = null;
 
-// Load Supabase via ESM — avoids UMD timing issues with Babel
-const supabasePromise = (async () => {
-  if (!isConfigured) return;
-  try {
-    const mod = await import('https://esm.sh/@supabase/supabase-js@2');
-    const createClient = mod.createClient || mod.default?.createClient;
-    supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    console.log('✓ Supabase ready');
-  } catch(e) {
-    console.error('✗ Supabase failed to load:', e);
-  }
-})();
+// __createSupabaseClient is set by the module script in <head> before Babel runs
+if (isConfigured && window.__createSupabaseClient) {
+  supabase = window.__createSupabaseClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  console.log('✓ Supabase ready (sync)');
+}
+
+// Fallback: if module script hasn't finished yet, wait for the event
+const supabasePromise = new Promise(resolve => {
+  if (supabase) { resolve(); return; }
+  document.addEventListener('supabase-ready', () => {
+    if (isConfigured && window.__createSupabaseClient) {
+      supabase = window.__createSupabaseClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      console.log('✓ Supabase ready (async event)');
+    }
+    resolve();
+  }, { once: true });
+});
 
 // ── DEMO DATA (used when Supabase not configured) ────────────────────────────
 const DEMO_PROJECTS = [
