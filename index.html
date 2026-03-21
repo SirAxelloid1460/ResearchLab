@@ -6,7 +6,6 @@
 <title>ResearchLab</title>
 <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7/babel.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Fira+Code:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
@@ -238,25 +237,24 @@ body::after { content:''; position:fixed; inset:0; background-image:url("data:im
 const { useState, useEffect, useRef, useCallback } = React;
 
 // ── CONFIG ──────────────────────────────────────────────────────────────────
-// Replace these with your Supabase project credentials
 const SUPABASE_URL = 'https://lkvkplvmilhequqswxsp.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_oU7n1cAVs2YiFbTIIxz3gg_rHCFZLkr';
 
 const isConfigured = SUPABASE_URL !== 'YOUR_SUPABASE_URL';
 let supabase = null;
-function getSupabase() {
-  if (!supabase && isConfigured) {
-    const client = window.supabase || window.supabaseJs;
-    if (client && client.createClient) {
-      supabase = client.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    }
+
+// Load Supabase via ESM — avoids UMD timing issues with Babel
+const supabasePromise = (async () => {
+  if (!isConfigured) return;
+  try {
+    const mod = await import('https://esm.sh/@supabase/supabase-js@2');
+    const createClient = mod.createClient || mod.default?.createClient;
+    supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    console.log('✓ Supabase ready');
+  } catch(e) {
+    console.error('✗ Supabase failed to load:', e);
   }
-  return supabase;
-}
-// Init immediately - by the time Babel runs this, all scripts are loaded
-if (isConfigured && window.supabase && window.supabase.createClient) {
-  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-}
+})();
 
 // ── DEMO DATA (used when Supabase not configured) ────────────────────────────
 const DEMO_PROJECTS = [
@@ -863,11 +861,15 @@ function App() {
 
   useEffect(()=>{
     if(!isConfigured){ setAuthLoading(false); return; }
-    supabase.auth.getSession().then(({data:{session}})=>{
-      setUser(session?.user||null); setAuthLoading(false);
+    let subscription;
+    supabasePromise.then(()=>{
+      supabase.auth.getSession().then(({data:{session}})=>{
+        setUser(session?.user||null); setAuthLoading(false);
+      });
+      const { data } = supabase.auth.onAuthStateChange((_,s)=>{ setUser(s?.user||null); });
+      subscription = data.subscription;
     });
-    const {data:{subscription}} = supabase.auth.onAuthStateChange((_,s)=>{ setUser(s?.user||null); });
-    return ()=>subscription.unsubscribe();
+    return ()=>subscription?.unsubscribe();
   },[]);
 
   useEffect(()=>{
