@@ -477,30 +477,47 @@ function InvestigationChat({ inv, onBack, onUpdate }) {
 
   useEffect(()=>{ if(messagesRef.current) messagesRef.current.scrollTop=messagesRef.current.scrollHeight; },[messages,loading]);
 
+  // Auto-send if investigation was created with a first question (no AI reply yet)
+  useEffect(()=>{
+    const msgs = inv.messages || [];
+    const lastMsg = msgs[msgs.length - 1];
+    if(msgs.length > 0 && lastMsg?.role === 'user') {
+      callAI(msgs);
+    }
+  }, []);
+
   function resize(el) { el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,150)+'px'; }
 
-  async function send() {
-    if(!input.trim()||loading) return;
-    const userMsg = {role:'user',content:input.trim()};
-    const newMsgs = [...messages, userMsg];
-    setMessages(newMsgs); setInput(''); setLoading(true);
-    if(taRef.current) { taRef.current.style.height='42px'; }
-    const system = `Eres ResearchLab, un asistente de investigación científica y análisis de datos. 
+  function buildSystem() {
+    return `Eres ResearchLab, un asistente de investigación científica y análisis de datos.
 Respondes SIEMPRE en español. Eres preciso, citas fuentes (Banco Mundial, ONU, FMI, NASA, etc.).
 Usa formato Markdown: ## para secciones, **negrita** para datos clave, tablas para comparativas.
 Al final incluye "## 💡 Conclusiones clave" con los hallazgos más importantes.
 Para gráficos usa: [CHART:titulo|etiqueta:valor,etiqueta:valor]
 La investigación actual es sobre: "${inv.topic}"`;
+  }
+
+  async function callAI(currentMsgs) {
+    setLoading(true);
     try {
-      const reply = await callClaude(newMsgs, system);
-      const finalMsgs = [...newMsgs, {role:'assistant',content:reply}];
+      const reply = await callClaude(currentMsgs, buildSystem());
+      const finalMsgs = [...currentMsgs, {role:'assistant',content:reply}];
       setMessages(finalMsgs);
       onUpdate(inv.id, finalMsgs, reply.slice(0,120)+'…');
     } catch(e) {
-      const err = [...newMsgs,{role:'assistant',content:`❌ Error: ${e.message}`}];
+      const err = [...currentMsgs,{role:'assistant',content:`❌ Error: ${e.message}`}];
       setMessages(err);
     }
     setLoading(false);
+  }
+
+  async function send() {
+    if(!input.trim()||loading) return;
+    const userMsg = {role:'user',content:input.trim()};
+    const newMsgs = [...messages, userMsg];
+    setMessages(newMsgs); setInput('');
+    if(taRef.current) { taRef.current.style.height='42px'; }
+    await callAI(newMsgs);
   }
 
   return (
