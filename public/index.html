@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ResearchLab</title>
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Fira+Code:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f4f0e6;
+  --paper: #faf7f1;
+  --ink: #1c1814;
+  --rule: #d8d3c8;
+  --muted: #8c877e;
+  --accent: #c94f2c;
+  --blue: #2563c4;
+  --green: #1a9e5c;
+  --amber: #d4820f;
+  --surface: #fff;
+  --shadow: 0 2px 8px rgba(28,24,20,0.08);
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); font-family:'Fira Code',monospace; color:var(--ink); min-height:100vh; }
+body::after { content:''; position:fixed; inset:0; background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E"); pointer-events:none; z-index:9999; }
+
+/* TYPOGRAPHY */
+.syne { font-family:'Syne',sans-serif; }
+.mono { font-family:'Fira Code',monospace; }
+
+/* LAYOUT */
+.app { display:flex; flex-direction:column; min-height:100vh; }
+
+/* HEADER */
+.header {
+  background:var(--paper);
+  border-bottom:2px solid var(--ink);
+  padding:.8rem 1.6rem;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  position:sticky;
+  top:0;
+  z-index:100;
+}
+.logo { font-family:'Syne',sans-serif; font-weight:800; font-size:1.25rem; letter-spacing:-.03em; }
+.logo span { color:var(--accent); }
+.header-right { display:flex; align-items:center; gap:.8rem; }
+.avatar { width:32px; height:32px; border-radius:50%; background:var(--ink); color:var(--bg); display:grid; place-items:center; font-size:.65rem; font-weight:700; font-family:'Syne',sans-serif; cursor:pointer; }
+.btn { font-family:'Fira Code',monospace; font-size:.72rem; padding:.5rem 1rem; border-radius:4px; cursor:pointer; transition:all .15s; border:1.5px solid; letter-spacing:.03em; }
+.btn-primary { background:var(--ink); color:var(--bg); border-color:var(--ink); }
+.btn-primary:hover { background:var(--accent); border-color:var(--accent); }
+.btn-ghost { background:transparent; color:var(--muted); border-color:var(--rule); }
+.btn-ghost:hover { border-color:var(--ink); color:var(--ink); }
+.btn-danger { background:transparent; color:#c94f2c; border-color:rgba(201,79,44,.3); }
+.btn-danger:hover { background:rgba(201,79,44,.07); }
+.btn:disabled { opacity:.4; cursor:not-allowed; }
+
+/* AUTH PAGE */
+.auth-page { min-height:100vh; display:grid; place-items:center; padding:2rem; }
+.auth-card { background:var(--surface); border:2px solid var(--ink); border-radius:8px; padding:2.5rem; width:100%; max-width:420px; box-shadow:4px 4px 0 var(--ink); }
+.auth-title { font-family:'Syne',sans-serif; font-weight:800; font-size:2rem; letter-spacing:-.04em; margin-bottom:.3rem; }
+.auth-title span { color:var(--accent); }
+.auth-sub { font-size:.68rem; color:var(--muted); margin-bottom:2rem; letter-spacing:.05em; }
+.field { margin-bottom:1rem; }
+.field label { display:block; font-size:.6rem; letter-spacing:.15em; text-transform:uppercase; color:var(--muted); margin-bottom:.35rem; }
+.field input { width:100%; background:var(--bg); border:1.5px solid var(--rule); color:var(--ink); padding:.65rem .9rem; font-family:'Fira Code',monospace; font-size:.78rem; border-radius:4px; outline:none; transition:border-color .15s; }
+.field input:focus { border-color:var(--ink); }
+.divider { display:flex; align-items:center; gap:.8rem; margin:1.2rem 0; color:var(--muted); font-size:.6rem; letter-spacing:.1em; }
+.divider::before, .divider::after { content:''; flex:1; height:1px; background:var(--rule); }
+.oauth-grid { display:grid; grid-template-columns:1fr 1fr; gap:.5rem; margin-bottom:1.2rem; }
+.oauth-btn { background:var(--bg); border:1.5px solid var(--rule); padding:.55rem; border-radius:4px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:.5rem; font-family:'Fira Code',monospace; font-size:.65rem; color:var(--ink); transition:all .15s; }
+.oauth-btn:hover { border-color:var(--ink); background:var(--paper); }
+.oauth-btn svg { width:16px; height:16px; flex-shrink:0; }
+.auth-toggle { text-align:center; margin-top:1rem; font-size:.65rem; color:var(--muted); }
+.auth-toggle button { background:none; border:none; color:var(--accent); cursor:pointer; font-family:'Fira Code',monospace; font-size:.65rem; text-decoration:underline; }
+.error-msg { background:rgba(201,79,44,.08); border:1px solid rgba(201,79,44,.25); color:var(--accent); padding:.6rem .8rem; border-radius:4px; font-size:.68rem; margin-bottom:.8rem; }
+.success-msg { background:rgba(26,158,92,.08); border:1px solid rgba(26,158,92,.25); color:var(--green); padding:.6rem .8rem; border-radius:4px; font-size:.68rem; margin-bottom:.8rem; }
+
+/* DASHBOARD */
+.dashboard { flex:1; padding:2rem; max-width:1100px; margin:0 auto; width:100%; }
+.page-header { display:flex; align-items:flex-end; justify-content:space-between; margin-bottom:2rem; flex-wrap:wrap; gap:1rem; }
+.page-title { font-family:'Syne',sans-serif; font-weight:800; font-size:1.8rem; letter-spacing:-.03em; }
+.page-title span { color:var(--accent); }
+.projects-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:1px; background:var(--rule); border:1px solid var(--rule); border-radius:4px; overflow:hidden; }
+.project-card { background:var(--paper); padding:1.4rem 1.6rem; cursor:pointer; transition:background .15s; position:relative; }
+.project-card:hover { background:var(--surface); }
+.project-card-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:.7rem; }
+.project-name { font-family:'Syne',sans-serif; font-weight:700; font-size:1rem; line-height:1.2; flex:1; padding-right:.5rem; }
+.project-meta { font-size:.6rem; color:var(--muted); letter-spacing:.05em; margin-bottom:.7rem; }
+.project-stats { display:flex; gap:1rem; }
+.stat-badge { font-size:.58rem; letter-spacing:.1em; text-transform:uppercase; padding:.2rem .5rem; border-radius:2px; border:1px solid; }
+.stat-inv { background:rgba(37,99,196,.08); color:var(--blue); border-color:rgba(37,99,196,.2); }
+.stat-calc { background:rgba(212,130,15,.08); color:var(--amber); border-color:rgba(212,130,15,.2); }
+.new-project-card { background:var(--bg); padding:1.4rem 1.6rem; cursor:pointer; transition:all .15s; display:flex; align-items:center; justify-content:center; gap:.7rem; color:var(--muted); font-size:.72rem; border:2px dashed var(--rule); border-radius:0; }
+.new-project-card:hover { color:var(--ink); border-color:var(--muted); background:var(--paper); }
+.empty-state { text-align:center; padding:4rem 2rem; color:var(--muted); }
+.empty-state .big { font-family:'Syne',sans-serif; font-size:2.5rem; margin-bottom:1rem; opacity:.3; }
+.empty-state p { font-size:.75rem; margin-bottom:1.5rem; }
+
+/* PROJECT PAGE */
+.project-page { flex:1; display:flex; flex-direction:column; }
+.project-header { background:var(--paper); border-bottom:2px solid var(--ink); padding:1rem 1.6rem; display:flex; align-items:center; gap:1rem; flex-wrap:wrap; }
+.breadcrumb { display:flex; align-items:center; gap:.5rem; font-size:.65rem; color:var(--muted); }
+.breadcrumb button { background:none; border:none; color:var(--accent); cursor:pointer; font-family:'Fira Code',monospace; font-size:.65rem; text-decoration:underline; }
+.breadcrumb span { opacity:.5; }
+.project-title-area { flex:1; }
+.project-page-title { font-family:'Syne',sans-serif; font-weight:800; font-size:1.3rem; letter-spacing:-.02em; }
+.project-desc { font-size:.62rem; color:var(--muted); margin-top:.2rem; }
+.tabs { display:flex; border-bottom:2px solid var(--rule); background:var(--paper); padding:0 1.6rem; }
+.tab { padding:.7rem 1.2rem; font-size:.68rem; letter-spacing:.08em; text-transform:uppercase; cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-2px; color:var(--muted); transition:all .15s; background:none; border-left:none; border-right:none; border-top:none; font-family:'Fira Code',monospace; }
+.tab.active { color:var(--ink); border-bottom-color:var(--ink); }
+.tab:hover:not(.active) { color:var(--ink); }
+.tab-content { flex:1; overflow-y:auto; padding:1.5rem 1.6rem; }
+
+/* INVESTIGATIONS */
+.inv-list { display:flex; flex-direction:column; gap:1px; background:var(--rule); border:1px solid var(--rule); border-radius:4px; overflow:hidden; margin-bottom:1rem; }
+.inv-item { background:var(--paper); padding:1rem 1.3rem; cursor:pointer; transition:background .15s; display:flex; align-items:flex-start; gap:1rem; }
+.inv-item:hover { background:var(--surface); }
+.inv-item-main { flex:1; }
+.inv-topic { font-family:'Syne',sans-serif; font-weight:700; font-size:.9rem; margin-bottom:.3rem; }
+.inv-preview { font-size:.63rem; color:var(--muted); line-height:1.5; }
+.inv-date { font-size:.58rem; color:var(--muted); white-space:nowrap; }
+.inv-status { width:8px; height:8px; border-radius:50%; flex-shrink:0; margin-top:4px; }
+.status-done { background:var(--green); }
+.status-wip { background:var(--amber); }
+
+/* INVESTIGATION CHAT */
+.inv-chat { display:flex; flex-direction:column; height:calc(100vh - 280px); }
+.inv-chat-header { display:flex; align-items:center; gap:.8rem; padding-bottom:1rem; border-bottom:1px solid var(--rule); margin-bottom:1rem; }
+.back-btn { background:none; border:1px solid var(--rule); color:var(--muted); padding:.35rem .7rem; border-radius:3px; cursor:pointer; font-size:.62rem; font-family:'Fira Code',monospace; transition:all .15s; }
+.back-btn:hover { border-color:var(--ink); color:var(--ink); }
+.inv-chat-title { font-family:'Syne',sans-serif; font-weight:700; font-size:1rem; flex:1; }
+.messages { flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:1rem; padding-right:.5rem; }
+.msg { display:flex; flex-direction:column; gap:.25rem; max-width:700px; animation:msgIn .25s ease; }
+@keyframes msgIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
+.msg.user { align-self:flex-end; align-items:flex-end; }
+.msg.ai { align-self:flex-start; }
+.msg-lbl { font-size:.52rem; letter-spacing:.15em; text-transform:uppercase; color:var(--muted); padding:0 .3rem; }
+.msg-bubble { padding:.8rem 1.1rem; border-radius:4px; font-size:.73rem; line-height:1.75; }
+.msg.user .msg-bubble { background:var(--ink); color:var(--bg); border-radius:4px 4px 2px 4px; }
+.msg.ai .msg-bubble { background:var(--surface); border:1px solid var(--rule); border-radius:4px 4px 4px 2px; }
+.msg.ai .msg-bubble h3 { font-family:'Syne',sans-serif; font-size:.8rem; font-weight:700; color:var(--accent); border-bottom:1px solid var(--rule); padding-bottom:.25rem; margin:.8rem 0 .4rem; }
+.msg.ai .msg-bubble h3:first-child { margin-top:0; }
+.msg.ai .msg-bubble strong { color:var(--accent); }
+.msg.ai .msg-bubble table { width:100%; border-collapse:collapse; font-size:.65rem; margin:.7rem 0; }
+.msg.ai .msg-bubble th { background:var(--ink); color:var(--bg); padding:.35rem .6rem; text-align:left; font-family:'Syne',sans-serif; font-size:.58rem; letter-spacing:.08em; text-transform:uppercase; }
+.msg.ai .msg-bubble td { padding:.3rem .6rem; border-bottom:1px solid var(--rule); }
+.msg.ai .msg-bubble tr:nth-child(even) td { background:var(--bg); }
+.msg.ai .msg-bubble p { margin-bottom:.45rem; }
+.msg.ai .msg-bubble p:last-child { margin-bottom:0; }
+.msg.ai .msg-bubble ul, .msg.ai .msg-bubble ol { padding-left:1.2rem; margin:.4rem 0; }
+.msg.ai .msg-bubble li { margin-bottom:.2rem; }
+.msg.ai .msg-bubble code { background:var(--bg); padding:.1rem .3rem; border-radius:2px; font-size:.68rem; border:1px solid var(--rule); }
+.thinking { display:flex; align-items:center; gap:.5rem; padding:.6rem .9rem; background:var(--surface); border:1px solid var(--rule); border-radius:4px; font-size:.62rem; color:var(--muted); width:fit-content; }
+.dots { display:flex; gap:3px; }
+.dot { width:5px; height:5px; border-radius:50%; background:var(--accent); animation:bounce 1.2s infinite; }
+.dot:nth-child(2){animation-delay:.2s}.dot:nth-child(3){animation-delay:.4s}
+@keyframes bounce{0%,80%,100%{transform:scale(.6);opacity:.4}40%{transform:scale(1);opacity:1}}
+.chat-input-area { margin-top:1rem; padding-top:1rem; border-top:1px solid var(--rule); }
+.chat-input-row { display:flex; gap:.6rem; align-items:flex-end; }
+.chat-input-row textarea { flex:1; background:var(--bg); border:1.5px solid var(--rule); color:var(--ink); padding:.65rem .9rem; font-family:'Fira Code',monospace; font-size:.73rem; border-radius:4px; outline:none; resize:none; transition:border-color .15s; line-height:1.5; min-height:42px; max-height:150px; }
+.chat-input-row textarea:focus { border-color:var(--ink); }
+
+/* CALCULATIONS */
+.calc-layout { display:grid; grid-template-columns:1fr 320px; gap:1.5rem; align-items:start; }
+@media(max-width:768px){ .calc-layout{grid-template-columns:1fr} }
+.calc-panel { background:var(--surface); border:1.5px solid var(--rule); border-radius:6px; overflow:hidden; }
+.calc-panel-header { padding:.8rem 1.1rem; background:var(--ink); color:var(--bg); }
+.calc-panel-title { font-family:'Syne',sans-serif; font-weight:700; font-size:.82rem; }
+.calc-panel-sub { font-size:.58rem; opacity:.6; margin-top:.15rem; }
+.calc-panel-body { padding:1.1rem; }
+.calc-textarea { width:100%; background:var(--bg); border:1.5px solid var(--rule); color:var(--ink); padding:.7rem .9rem; font-family:'Fira Code',monospace; font-size:.73rem; border-radius:4px; outline:none; resize:vertical; min-height:90px; line-height:1.6; transition:border-color .15s; }
+.calc-textarea:focus { border-color:var(--ink); }
+.data-source-list { display:flex; flex-direction:column; gap:.5rem; }
+.data-source-item { display:flex; align-items:center; gap:.6rem; padding:.6rem .8rem; background:var(--bg); border:1px solid var(--rule); border-radius:3px; font-size:.65rem; cursor:pointer; transition:all .15s; }
+.data-source-item.selected { border-color:var(--blue); background:rgba(37,99,196,.06); }
+.data-source-item .ds-check { width:14px; height:14px; border:1.5px solid var(--rule); border-radius:2px; flex-shrink:0; display:grid; place-items:center; font-size:.6rem; }
+.data-source-item.selected .ds-check { background:var(--blue); border-color:var(--blue); color:white; }
+.ds-name { flex:1; font-family:'Syne',sans-serif; font-weight:600; font-size:.65rem; }
+.ds-preview { font-size:.58rem; color:var(--muted); }
+.calc-type-grid { display:grid; grid-template-columns:1fr 1fr; gap:.4rem; margin:.6rem 0; }
+.calc-type-btn { background:var(--bg); border:1.5px solid var(--rule); color:var(--muted); padding:.5rem .6rem; border-radius:3px; cursor:pointer; font-size:.6rem; letter-spacing:.06em; text-transform:uppercase; font-family:'Fira Code',monospace; transition:all .15s; text-align:center; }
+.calc-type-btn.active { background:var(--ink); color:var(--bg); border-color:var(--ink); }
+.calc-result { background:var(--surface); border:1.5px solid var(--rule); border-radius:6px; overflow:hidden; margin-top:1rem; }
+.calc-result-header { padding:.7rem 1rem; background:var(--bg); border-bottom:1px solid var(--rule); font-size:.6rem; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); display:flex; align-items:center; gap:.5rem; }
+.calc-result-header .dot-green { width:7px; height:7px; border-radius:50%; background:var(--green); }
+.calc-result-body { padding:1rem; font-size:.73rem; line-height:1.75; }
+.calc-result-body h3 { font-family:'Syne',sans-serif; font-size:.8rem; font-weight:700; color:var(--accent); margin:.7rem 0 .35rem; }
+.calc-result-body h3:first-child { margin-top:0; }
+.calc-result-body strong { color:var(--accent); }
+.calc-result-body table { width:100%; border-collapse:collapse; font-size:.64rem; margin:.6rem 0; }
+.calc-result-body th { background:var(--ink); color:var(--bg); padding:.3rem .5rem; text-align:left; font-family:'Syne',sans-serif; font-size:.57rem; letter-spacing:.08em; text-transform:uppercase; }
+.calc-result-body td { padding:.28rem .5rem; border-bottom:1px solid var(--rule); }
+.calc-result-body tr:nth-child(even) td { background:var(--bg); }
+.calc-result-body p { margin-bottom:.4rem; }
+.calc-result-body ul { padding-left:1.1rem; margin:.3rem 0; }
+.calc-result-body li { margin-bottom:.2rem; }
+.calc-result-body code { background:var(--bg); padding:.1rem .25rem; border-radius:2px; font-size:.67rem; border:1px solid var(--rule); }
+.inline-chart { display:flex; flex-direction:column; gap:.4rem; margin:.7rem 0; }
+.chart-row { display:flex; align-items:center; gap:.6rem; font-size:.62rem; }
+.chart-lbl { width:120px; flex-shrink:0; color:var(--muted); }
+.chart-bar-wrap { flex:1; height:14px; background:var(--bg); border:1px solid var(--rule); border-radius:2px; overflow:hidden; }
+.chart-bar { height:100%; transition:width 1s cubic-bezier(.34,1.2,.64,1); }
+.chart-val { width:50px; text-align:right; font-weight:500; }
+
+/* MODAL */
+.modal-overlay { position:fixed; inset:0; background:rgba(28,24,20,.6); backdrop-filter:blur(3px); z-index:1000; display:grid; place-items:center; padding:1rem; }
+.modal { background:var(--surface); border:2px solid var(--ink); border-radius:6px; padding:1.8rem; width:100%; max-width:480px; box-shadow:4px 4px 0 var(--ink); animation:modalIn .25s cubic-bezier(.34,1.2,.64,1); }
+@keyframes modalIn{from{transform:scale(.93) translateY(12px);opacity:0}to{transform:none;opacity:1}}
+.modal-title { font-family:'Syne',sans-serif; font-weight:800; font-size:1.3rem; letter-spacing:-.02em; margin-bottom:.3rem; }
+.modal-sub { font-size:.62rem; color:var(--muted); margin-bottom:1.4rem; }
+.modal-actions { display:flex; gap:.6rem; justify-content:flex-end; margin-top:1.4rem; }
+
+/* MISC */
+.tag { display:inline-flex; align-items:center; gap:.3rem; font-size:.55rem; letter-spacing:.1em; text-transform:uppercase; padding:.18rem .45rem; border-radius:2px; border:1px solid; }
+.tag-inv { background:rgba(37,99,196,.07); color:var(--blue); border-color:rgba(37,99,196,.2); }
+.tag-calc { background:rgba(212,130,15,.07); color:var(--amber); border-color:rgba(212,130,15,.2); }
+.spinner { width:14px; height:14px; border:2px solid rgba(255,255,255,.3); border-top-color:white; border-radius:50%; animation:spin .7s linear infinite; }
+@keyframes spin{to{transform:rotate(360deg)}}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:var(--rule);border-radius:2px}
+
+/* SETUP NOTICE */
+.setup-notice { background:rgba(212,130,15,.08); border:1px solid rgba(212,130,15,.3); border-radius:6px; padding:1rem 1.2rem; margin-bottom:1.5rem; font-size:.68rem; }
+.setup-notice strong { color:var(--amber); font-family:'Syne',sans-serif; }
+.setup-notice code { background:var(--bg); padding:.1rem .3rem; border-radius:2px; font-size:.66rem; border:1px solid var(--rule); }
+.setup-notice ul { padding-left:1.1rem; margin:.5rem 0; }
+.setup-notice li { margin-bottom:.25rem; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+
+// ── CONFIG ──────────────────────────────────────────────────────────────────
+// Replace these with your Supabase project credentials
+const SUPABASE_URL = 'https://lkvkplvmilhequqswxsp.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_oU7n1cAVs2YiFbTIIxz3gg_rHCFZLkr';
+
+const isConfigured = SUPABASE_URL !== 'YOUR_SUPABASE_URL';
+let supabase = null;
+if (isConfigured) {
+  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+}
+
+// ── DEMO DATA (used when Supabase not configured) ────────────────────────────
+const DEMO_PROJECTS = [
+  {
+    id: 'demo-1', name: 'Demografía Global', description: 'Análisis de distribución de edad y jubilación por países',
+    created_at: new Date(Date.now()-86400000*3).toISOString(),
+    investigations: [
+      { id:'i1', topic:'Distribución por edad en países de la OCDE', summary:'Comparativa de grupos etarios: niños, laborales y jubilados. Japón lidera con 29.5% de mayores de 65 años.', messages:[{role:'user',content:'¿Cómo se distribuye la edad en países OCDE?'},{role:'assistant',content:'## Distribución por edad en la OCDE\n\nLa OCDE muestra una **tendencia clara de envejecimiento**. Aquí el ranking de países con más jubilados:\n\n| País | Menores 15 | Laborales 15-64 | Mayores 65+ |\n|------|-----------|-----------------|-------------|\n| Japón | 12.1% | 58.4% | **29.5%** |\n| Alemania | 13.8% | 62.5% | **23.7%** |\n| Italia | 11.9% | 64.5% | **23.6%** |\n| Grecia | 13.8% | 62.6% | **23.6%** |\n| España | 13.0% | 66.1% | **20.9%** |\n\n## 💡 Conclusiones clave\n\n- Japón tiene la mayor presión sobre sistemas de pensiones\n- Italia y Grecia combinan baja natalidad + alto envejecimiento\n- España aún tiene un colchón laboral mayor, pero declinante'}], created_at: new Date(Date.now()-86400000*2).toISOString() },
+      { id:'i2', topic:'Sistemas de jubilación en Europa', summary:'Comparativa de edad de jubilación, sostenibilidad y reformas recientes en distintos países europeos.', messages:[{role:'user',content:'Analiza los sistemas de jubilación en Europa'},{role:'assistant',content:'## Sistemas de jubilación en Europa\n\nEuropa enfrenta **grandes presiones** en sus sistemas de pensiones.\n\n| País | Edad jubilación | Tipo sistema | Estado |\n|------|----------------|--------------|--------|\n| Alemania | 67 | Reparto | Reforma 2023 |\n| Francia | 64 | Mixto | Reforma 2023 |\n| España | 65-67 | Reparto | Riesgo medio |\n| Italia | 67 | Reparto | Alto déficit |\n| Países Bajos | 67 | Capitalización | Sostenible |\n\n## 💡 Conclusiones clave\n\n- Los sistemas de **reparto** (paga activos a jubilados) son vulnerables al envejecimiento\n- Países Bajos y Dinamarca tienen modelos más sostenibles\n- La tendencia es retrasar la edad de jubilación en toda Europa'}], created_at: new Date(Date.now()-86400000).toISOString() }
+    ],
+    calculations: [
+      { id:'c1', title:'Ratio de dependencia por país', type:'correlation', prompt:'Cruza datos de jubilados vs población laboral y calcula el ratio de dependencia', result:'## Ratio de dependencia = (Niños + Mayores) / Laborales × 100\n\n| País | Ratio dependencia | Clasificación |\n|------|------------------|---------------|\n| Japón | **71.2%** | Crítico |\n| Italia | 54.9% | Alto |\n| Alemania | 60.0% | Alto |\n| España | 51.4% | Medio |\n| Países Bajos | 56.1% | Medio |\n\n## 💡 Proyección 2040\n\nSi las tendencias actuales continúan:\n- **Japón** superará el **85%** de ratio\n- **España** alcanzará el **65%**\n- El umbral crítico económico se considera en **70%**', created_at: new Date().toISOString() }
+    ]
+  },
+  {
+    id:'demo-2', name:'Economía Climática', description:'Impacto económico del cambio climático y transición energética',
+    created_at: new Date(Date.now()-86400000*7).toISOString(),
+    investigations:[], calculations:[]
+  }
+];
+
+// ── HELPERS ──────────────────────────────────────────────────────────────────
+function parseMarkdown(text) {
+  let h = text;
+  h = h.replace(/\|(.+)\|\n\|[-| :]+\|\n((?:\|.+\|\n?)+)/g, (_, hd, rows) => {
+    const ths = hd.split('|').filter(Boolean).map(c=>`<th>${c.trim()}</th>`).join('');
+    const trs = rows.trim().split('\n').map(r=>{
+      const tds = r.split('|').filter(Boolean).map(c=>`<td>${c.trim()}</td>`).join('');
+      return `<tr>${tds}</tr>`;
+    }).join('');
+    return `<table><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table>`;
+  });
+  h = h.replace(/\[CHART:([^\|]+)\|([^\]]+)\]/g, (_,title,data)=>{
+    const pairs = data.split(',').map(p=>{ const [l,v]=p.split(':'); return {l:l?.trim(),v:parseFloat(v)||0}; });
+    const mx = Math.max(...pairs.map(p=>p.v));
+    const COLORS=['#c94f2c','#2563c4','#1a9e5c','#d4820f','#8b2cc9'];
+    const rows = pairs.map((p,i)=>`<div class="chart-row"><span class="chart-lbl">${p.l}</span><div class="chart-bar-wrap"><div class="chart-bar" style="width:${mx?p.v/mx*100:0}%;background:${COLORS[i%COLORS.length]}"></div></div><span class="chart-val">${p.v.toLocaleString('es')}</span></div>`).join('');
+    return `<div style="margin:.8rem 0"><div style="font-family:Syne,sans-serif;font-weight:700;font-size:.75rem;color:var(--accent);margin-bottom:.4rem">${title}</div><div class="inline-chart">${rows}</div></div>`;
+  });
+  h = h.replace(/^## (.+)$/gm,'<h3>$1</h3>');
+  h = h.replace(/^### (.+)$/gm,'<h4 style="font-family:Syne,sans-serif;font-size:.75rem;font-weight:700;margin:.6rem 0 .2rem;color:var(--blue)">$1</h4>');
+  h = h.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+  h = h.replace(/`([^`]+)`/g,'<code>$1</code>');
+  h = h.replace(/^[-•*] (.+)$/gm,'<li>$1</li>');
+  h = h.replace(/(<li>[\s\S]*?<\/li>\n?)+/g,m=>`<ul>${m}</ul>`);
+  h = h.split('\n\n').map(b=>b.startsWith('<')?b:`<p>${b.replace(/\n/g,'<br>')}</p>`).join('');
+  return h;
+}
+
+function fmt(dateStr) {
+  return new Date(dateStr).toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'});
+}
+
+// ── CLAUDE API CALL ──────────────────────────────────────────────────────────
+async function callClaude(messages, systemPrompt) {
+  const res = await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      model:'claude-sonnet-4-20250514',
+      max_tokens:1000,
+      system: systemPrompt,
+      tools:[{type:'web_search_20250305',name:'web_search'}],
+      messages
+    })
+  });
+  const data = await res.json();
+  const text = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
+  return text || 'No se obtuvo respuesta.';
+}
+
+// ── SETUP NOTICE ─────────────────────────────────────────────────────────────
+function SetupNotice() {
+  return (
+    <div className="setup-notice">
+      <strong>⚙ Configuración requerida</strong>
+      <p style={{marginTop:'.4rem',lineHeight:1.6}}>Esta app necesita dos servicios externos para funcionar completamente:</p>
+      <ul>
+        <li><strong>Supabase</strong> (auth + base de datos): Crea proyecto gratis en <code>supabase.com</code>, copia la URL y Anon Key, y reemplaza <code>YOUR_SUPABASE_URL</code> y <code>YOUR_SUPABASE_ANON_KEY</code> en el código. También ejecuta el SQL de la tabla de abajo.</li>
+        <li><strong>Claude API</strong>: Disponible automáticamente dentro de claude.ai.</li>
+      </ul>
+      <p style={{marginTop:'.5rem'}}>Por ahora estás viendo la <strong>demo con datos de ejemplo</strong>. Puedes explorar la interfaz completa.</p>
+    </div>
+  );
+}
+
+// ── AUTH ──────────────────────────────────────────────────────────────────────
+function AuthPage({ onDemoMode }) {
+  const [mode, setMode] = useState('login');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (!isConfigured) { onDemoMode(); return; }
+    setLoading(true); setError(''); setSuccess('');
+    try {
+      if (mode === 'login') {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.auth.signUp({ email, password });
+        if (error) throw error;
+        setSuccess('Revisa tu email para confirmar la cuenta.');
+      }
+    } catch(err) { setError(err.message); }
+    setLoading(false);
+  }
+
+  async function handleOAuth(provider) {
+    if (!isConfigured) { onDemoMode(); return; }
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider, options:{ redirectTo: window.location.href }
+    });
+    if (error) setError(error.message);
+  }
+
+  const PROVIDERS = [
+    { id:'google', label:'Google', icon:<svg viewBox="0 0 24 24" fill="none"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg> },
+    { id:'github', label:'GitHub', icon:<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg> },
+    { id:'twitter', label:'X / Twitter', icon:<svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg> },
+    { id:'discord', label:'Discord', icon:<svg viewBox="0 0 24 24" fill="#5865F2"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057c.002.022.015.04.03.048a19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/></svg> },
+  ];
+
+  return (
+    <div className="auth-page">
+      <div className="auth-card">
+        {!isConfigured && (
+          <div style={{background:'rgba(212,130,15,.08)',border:'1px solid rgba(212,130,15,.3)',borderRadius:4,padding:'.6rem .8rem',marginBottom:'1rem',fontSize:'.65rem',color:'var(--amber)'}}>
+            ⚙ Supabase no configurado · <button onClick={onDemoMode} style={{background:'none',border:'none',color:'var(--accent)',cursor:'pointer',fontFamily:'inherit',fontSize:'inherit',textDecoration:'underline'}}>Entrar en modo demo</button>
+          </div>
+        )}
+        <div className="auth-title">Research<span>Lab</span></div>
+        <div className="auth-sub">{mode==='login'?'Accede a tu espacio de investigación':'Crea tu cuenta gratuita'}</div>
+        {error && <div className="error-msg">{error}</div>}
+        {success && <div className="success-msg">{success}</div>}
+        <div className="oauth-grid">
+          {PROVIDERS.map(p=>(
+            <button key={p.id} className="oauth-btn" onClick={()=>handleOAuth(p.id)}>
+              {p.icon}{p.label}
+            </button>
+          ))}
+        </div>
+        <div className="divider">o con email</div>
+        <form onSubmit={handleSubmit}>
+          <div className="field">
+            <label>Email</label>
+            <input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="tu@email.com" required/>
+          </div>
+          <div className="field">
+            <label>Contraseña</label>
+            <input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="••••••••" required minLength={6}/>
+          </div>
+          <button type="submit" className="btn btn-primary" style={{width:'100%',padding:'.7rem'}} disabled={loading}>
+            {loading?<span style={{display:'flex',alignItems:'center',justifyContent:'center',gap:'.5rem'}}><span className="spinner"/>{mode==='login'?'Entrando…':'Creando cuenta…'}</span>:mode==='login'?'Iniciar sesión':'Crear cuenta'}
+          </button>
+        </form>
+        <div className="auth-toggle">
+          {mode==='login'?<>¿Sin cuenta? <button onClick={()=>setMode('register')}>Regístrate gratis</button></>:<>¿Ya tienes cuenta? <button onClick={()=>setMode('login')}>Inicia sesión</button></>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── NEW PROJECT MODAL ─────────────────────────────────────────────────────────
+function NewProjectModal({ onClose, onCreate }) {
+  const [name, setName] = useState('');
+  const [desc, setDesc] = useState('');
+  return (
+    <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="modal">
+        <div className="modal-title">Nuevo proyecto</div>
+        <div className="modal-sub">Los proyectos agrupan investigaciones relacionadas</div>
+        <div className="field"><label>Nombre del proyecto</label><input value={name} onChange={e=>setName(e.target.value)} placeholder="Ej: Demografía europea 2025" autoFocus/></div>
+        <div className="field"><label>Descripción (opcional)</label><input value={desc} onChange={e=>setDesc(e.target.value)} placeholder="Qué vas a investigar en este proyecto…"/></div>
+        <div className="modal-actions">
+          <button className="btn btn-ghost" onClick={onClose}>Cancelar</button>
+          <button className="btn btn-primary" onClick={()=>name.trim()&&onCreate(name.trim(),desc.trim())} disabled={!name.trim()}>Crear proyecto</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── INVESTIGATION CHAT ────────────────────────────────────────────────────────
+function InvestigationChat({ inv, onBack, onUpdate }) {
+  const [messages, setMessages] = useState(inv.messages || []);
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const messagesRef = useRef(null);
+  const taRef = useRef(null);
+
+  useEffect(()=>{ if(messagesRef.current) messagesRef.current.scrollTop=messagesRef.current.scrollHeight; },[messages,loading]);
+
+  function resize(el) { el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,150)+'px'; }
+
+  async function send() {
+    if(!input.trim()||loading) return;
+    const userMsg = {role:'user',content:input.trim()};
+    const newMsgs = [...messages, userMsg];
+    setMessages(newMsgs); setInput(''); setLoading(true);
+    if(taRef.current) { taRef.current.style.height='42px'; }
+    const system = `Eres ResearchLab, un asistente de investigación científica y análisis de datos. 
+Respondes SIEMPRE en español. Eres preciso, citas fuentes (Banco Mundial, ONU, FMI, NASA, etc.).
+Usa formato Markdown: ## para secciones, **negrita** para datos clave, tablas para comparativas.
+Al final incluye "## 💡 Conclusiones clave" con los hallazgos más importantes.
+Para gráficos usa: [CHART:titulo|etiqueta:valor,etiqueta:valor]
+La investigación actual es sobre: "${inv.topic}"`;
+    try {
+      const reply = await callClaude(newMsgs, system);
+      const finalMsgs = [...newMsgs, {role:'assistant',content:reply}];
+      setMessages(finalMsgs);
+      onUpdate(inv.id, finalMsgs, reply.slice(0,120)+'…');
+    } catch(e) {
+      const err = [...newMsgs,{role:'assistant',content:`❌ Error: ${e.message}`}];
+      setMessages(err);
+    }
+    setLoading(false);
+  }
+
+  return (
+    <div className="inv-chat">
+      <div className="inv-chat-header">
+        <button className="back-btn" onClick={onBack}>← Volver</button>
+        <div className="inv-chat-title">{inv.topic}</div>
+        <span className="tag tag-inv">Investigación</span>
+      </div>
+      <div className="messages" ref={messagesRef}>
+        {messages.map((m,i)=>(
+          <div key={i} className={`msg ${m.role==='user'?'user':'ai'}`}>
+            <span className="msg-lbl">{m.role==='user'?'Tú':'ResearchLab IA'}</span>
+            {m.role==='user'
+              ? <div className="msg-bubble">{m.content}</div>
+              : <div className="msg-bubble" dangerouslySetInnerHTML={{__html:parseMarkdown(m.content)}}/>
+            }
+          </div>
+        ))}
+        {loading && (
+          <div className="msg ai">
+            <span className="msg-lbl">ResearchLab IA</span>
+            <div className="thinking"><div className="dots"><div className="dot"/><div className="dot"/><div className="dot"/></div>Investigando…</div>
+          </div>
+        )}
+      </div>
+      <div className="chat-input-area">
+        <div className="chat-input-row">
+          <textarea ref={taRef} value={input} onChange={e=>{setInput(e.target.value);resize(e.target);}} onKeyDown={e=>{ if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();} }} placeholder="Pregunta algo o pide un análisis más profundo…" rows={1}/>
+          <button className="btn btn-primary" onClick={send} disabled={loading||!input.trim()}>{loading?<span className="spinner"/>:'↑ Enviar'}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── NEW INVESTIGATION MODAL ───────────────────────────────────────────────────
+function NewInvestigationModal({ onClose, onCreate }) {
+  const [topic, setTopic] = useState('');
+  const [firstQ, setFirstQ] = useState('');
+  return (
+    <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="modal">
+        <div className="modal-title">Nueva investigación</div>
+        <div className="modal-sub">Define el tema que quieres explorar en esta sesión</div>
+        <div className="field"><label>Tema de investigación</label><input value={topic} onChange={e=>setTopic(e.target.value)} placeholder="Ej: Esperanza de vida vs gasto sanitario" autoFocus/></div>
+        <div className="field"><label>Primera pregunta (opcional)</label><input value={firstQ} onChange={e=>setFirstQ(e.target.value)} placeholder="Ej: ¿Qué países tienen mayor gasto sanitario?"/></div>
+        <div className="modal-actions">
+          <button className="btn btn-ghost" onClick={onClose}>Cancelar</button>
+          <button className="btn btn-primary" onClick={()=>topic.trim()&&onCreate(topic.trim(),firstQ.trim())} disabled={!topic.trim()}>Comenzar investigación</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── CALCULATIONS TAB ──────────────────────────────────────────────────────────
+function CalculationsTab({ project, onSave }) {
+  const [selectedSources, setSelectedSources] = useState([]);
+  const [calcType, setCalcType] = useState('cross');
+  const [prompt, setPrompt] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState(null);
+  const [saved, setSaved] = useState(project.calculations || []);
+  const [viewCalc, setViewCalc] = useState(null);
+
+  const TYPES = [
+    {id:'cross', label:'Cruzar datos'},
+    {id:'projection', label:'Proyección'},
+    {id:'correlation', label:'Correlación'},
+    {id:'formula', label:'Fórmula propia'},
+  ];
+
+  function toggleSource(id) {
+    setSelectedSources(s=>s.includes(id)?s.filter(x=>x!==id):[...s,id]);
+  }
+
+  async function runCalc() {
+    if(!prompt.trim()) return;
+    setLoading(true); setResult(null);
+    const sources = project.investigations.filter(i=>selectedSources.includes(i.id));
+    const dataContext = sources.map(s=>{
+      const lastAI = [...s.messages].reverse().find(m=>m.role==='assistant');
+      return `### Investigación: "${s.topic}"\nResumen: ${s.summary||'(sin resumen)'}\nÚltimos datos:\n${lastAI?.content?.slice(0,800)||'Sin datos aún'}`;
+    }).join('\n\n---\n\n');
+    const typeLabels = {cross:'cruce de datos entre fuentes',projection:'proyección de tendencias',correlation:'análisis de correlación estadística',formula:'cálculo con fórmula personalizada'};
+    const system = `Eres ResearchLab, motor de cálculo y análisis. SIEMPRE respondes en español.
+Usa Markdown avanzado: ## secciones, tablas, **negrita**, [CHART:titulo|etiqueta:valor,...] para gráficos.
+Realiza un ${typeLabels[calcType]} riguroso y cita metodología.
+Al final siempre incluye "## 💡 Conclusiones clave" y "## ⚠ Limitaciones" brevemente.
+${dataContext ? `\n\n## Datos disponibles de las investigaciones seleccionadas:\n${dataContext}` : ''}`;
+    try {
+      const reply = await callClaude([{role:'user',content:prompt}], system);
+      setResult(reply);
+    } catch(e) { setResult(`❌ Error: ${e.message}`); }
+    setLoading(false);
+  }
+
+  function saveCalc() {
+    if(!result) return;
+    const newCalc = { id:'c'+Date.now(), title:prompt.slice(0,60), type:calcType, prompt, result, created_at:new Date().toISOString() };
+    const updated = [newCalc, ...saved];
+    setSaved(updated);
+    onSave(updated);
+    setResult(null); setPrompt('');
+  }
+
+  if(viewCalc) return (
+    <div>
+      <div style={{display:'flex',alignItems:'center',gap:'.8rem',marginBottom:'1.2rem'}}>
+        <button className="back-btn" onClick={()=>setViewCalc(null)}>← Volver</button>
+        <span style={{fontFamily:'Syne,sans-serif',fontWeight:700,fontSize:'.95rem',flex:1}}>{viewCalc.title}</span>
+        <span className="tag tag-calc">{viewCalc.type}</span>
+      </div>
+      <div className="calc-result">
+        <div className="calc-result-header"><div className="dot-green"/>{new Date(viewCalc.created_at).toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'})}</div>
+        <div className="calc-result-body" dangerouslySetInnerHTML={{__html:parseMarkdown(viewCalc.result)}}/>
+      </div>
+    </div>
+  );
+
+  return (
+    <div>
+      {saved.length>0&&(
+        <div style={{marginBottom:'1.5rem'}}>
+          <div style={{fontSize:'.58rem',letterSpacing:'.15em',textTransform:'uppercase',color:'var(--muted)',marginBottom:'.6rem'}}>Calculaciones guardadas</div>
+          <div className="inv-list">
+            {saved.map(c=>(
+              <div key={c.id} className="inv-item" onClick={()=>setViewCalc(c)}>
+                <div className="inv-status status-done"/>
+                <div className="inv-item-main">
+                  <div className="inv-topic">{c.title}</div>
+                  <div className="inv-preview" style={{display:'flex',gap:'.5rem',marginTop:'.3rem',alignItems:'center'}}>
+                    <span className="tag tag-calc">{c.type}</span>
+                    <span>{fmt(c.created_at)}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      <div className="calc-layout">
+        <div>
+          <div style={{fontSize:'.58rem',letterSpacing:'.15em',textTransform:'uppercase',color:'var(--muted)',marginBottom:'.6rem'}}>Nueva calculación</div>
+          <div className="calc-panel">
+            <div className="calc-panel-header">
+              <div className="calc-panel-title">Motor de Análisis IA</div>
+              <div className="calc-panel-sub">Interrelaciona datos de tus investigaciones</div>
+            </div>
+            <div className="calc-panel-body">
+              <div style={{fontSize:'.58rem',letterSpacing:'.12em',textTransform:'uppercase',color:'var(--muted)',marginBottom:'.4rem'}}>Tipo de análisis</div>
+              <div className="calc-type-grid">
+                {TYPES.map(t=><button key={t.id} className={`calc-type-btn${calcType===t.id?' active':''}`} onClick={()=>setCalcType(t.id)}>{t.label}</button>)}
+              </div>
+              <div style={{fontSize:'.58rem',letterSpacing:'.12em',textTransform:'uppercase',color:'var(--muted)',margin:'.8rem 0 .4rem'}}>Qué quieres calcular o analizar</div>
+              <textarea className="calc-textarea" value={prompt} onChange={e=>setPrompt(e.target.value)} placeholder={
+                calcType==='cross'?'Ej: Cruza los datos de esperanza de vida con el PIB per cápita y encuentra patrones…':
+                calcType==='projection'?'Ej: Proyecta la tasa de envejecimiento de España para 2030 y 2040 basándote en las tendencias actuales…':
+                calcType==='correlation'?'Ej: ¿Existe correlación entre el gasto sanitario y la longevidad? Calcula el coeficiente de correlación…':
+                'Ej: Calcula el ratio de dependencia demográfica usando la fórmula (menores+mayores)/laborales×100…'
+              }/>
+              <button className="btn btn-primary" style={{width:'100%',marginTop:'.7rem',padding:'.65rem'}} onClick={runCalc} disabled={loading||!prompt.trim()}>
+                {loading?<span style={{display:'flex',alignItems:'center',justifyContent:'center',gap:'.5rem'}}><span className="spinner"/>Calculando…</span>:'⚡ Ejecutar análisis'}
+              </button>
+            </div>
+          </div>
+          {result&&(
+            <div className="calc-result" style={{marginTop:'1rem'}}>
+              <div className="calc-result-header"><div className="dot-green"/>Resultado listo</div>
+              <div className="calc-result-body" dangerouslySetInnerHTML={{__html:parseMarkdown(result)}}/>
+              <div style={{padding:'.8rem 1rem',borderTop:'1px solid var(--rule)',display:'flex',gap:'.5rem',justifyContent:'flex-end'}}>
+                <button className="btn btn-ghost" onClick={()=>setResult(null)}>Descartar</button>
+                <button className="btn btn-primary" onClick={saveCalc}>Guardar calculación</button>
+              </div>
+            </div>
+          )}
+        </div>
+        <div>
+          <div style={{fontSize:'.58rem',letterSpacing:'.12em',textTransform:'uppercase',color:'var(--muted)',marginBottom:'.6rem'}}>Fuentes de datos ({project.investigations.length})</div>
+          {project.investigations.length===0?(
+            <div style={{background:'var(--bg)',border:'1px dashed var(--rule)',borderRadius:4,padding:'1.5rem',textAlign:'center',fontSize:'.68rem',color:'var(--muted)'}}>
+              Añade investigaciones al proyecto para poder cruzar sus datos aquí
+            </div>
+          ):(
+            <div className="data-source-list">
+              {project.investigations.map(inv=>(
+                <div key={inv.id} className={`data-source-item${selectedSources.includes(inv.id)?' selected':''}`} onClick={()=>toggleSource(inv.id)}>
+                  <div className="ds-check">{selectedSources.includes(inv.id)&&'✓'}</div>
+                  <div style={{flex:1}}>
+                    <div className="ds-name">{inv.topic}</div>
+                    <div className="ds-preview">{inv.messages?.length||0} mensajes · {fmt(inv.created_at)}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {selectedSources.length>0&&<div style={{marginTop:'.6rem',fontSize:'.6rem',color:'var(--green)'}}>✓ {selectedSources.length} fuente{selectedSources.length>1?'s':''} seleccionada{selectedSources.length>1?'s':''}</div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── PROJECT PAGE ──────────────────────────────────────────────────────────────
+function ProjectPage({ project, onBack, onUpdate }) {
+  const [tab, setTab] = useState('investigations');
+  const [showNewInv, setShowNewInv] = useState(false);
+  const [activeInv, setActiveInv] = useState(null);
+  const [proj, setProj] = useState(project);
+
+  function createInvestigation(topic, firstQ) {
+    const msgs = firstQ ? [{role:'user',content:firstQ}] : [];
+    const inv = { id:'i'+Date.now(), topic, summary:'Nueva investigación', messages:msgs, created_at:new Date().toISOString() };
+    const updated = { ...proj, investigations:[inv,...(proj.investigations||[])] };
+    setProj(updated); onUpdate(updated);
+    setShowNewInv(false);
+    setActiveInv(inv);
+    setTab('investigations');
+  }
+
+  function updateInvestigation(id, messages, summary) {
+    const invs = proj.investigations.map(i=>i.id===id?{...i,messages,summary}:i);
+    const updated = {...proj, investigations:invs};
+    setProj(updated); onUpdate(updated);
+  }
+
+  function saveCalculations(calculations) {
+    const updated = {...proj, calculations};
+    setProj(updated); onUpdate(updated);
+  }
+
+  const invs = proj.investigations||[];
+
+  return (
+    <div className="project-page">
+      <div className="project-header">
+        <div className="project-title-area">
+          <div className="breadcrumb"><button onClick={onBack}>Proyectos</button><span>›</span><span>{proj.name}</span></div>
+          <div className="project-page-title">{proj.name}</div>
+          {proj.description&&<div className="project-desc">{proj.description}</div>}
+        </div>
+        <div style={{display:'flex',gap:'.5rem'}}>
+          {tab==='investigations'&&<button className="btn btn-primary" onClick={()=>setShowNewInv(true)}>+ Nueva investigación</button>}
+        </div>
+      </div>
+      <div className="tabs">
+        <button className={`tab${tab==='investigations'?' active':''}`} onClick={()=>{setTab('investigations');setActiveInv(null);}}>
+          Investigaciones ({invs.length})
+        </button>
+        <button className={`tab${tab==='calculations'?' active':''}`} onClick={()=>setTab('calculations')}>
+          Calculaciones ({(proj.calculations||[]).length})
+        </button>
+      </div>
+      <div className="tab-content">
+        {tab==='investigations'&&(
+          activeInv
+            ? <InvestigationChat inv={activeInv} onBack={()=>setActiveInv(null)} onUpdate={updateInvestigation}/>
+            : <>
+                {invs.length===0
+                  ? <div className="empty-state"><div className="big">🔬</div><p>Aún no hay investigaciones en este proyecto</p><button className="btn btn-primary" onClick={()=>setShowNewInv(true)}>+ Añadir primera investigación</button></div>
+                  : <div className="inv-list">
+                      {invs.map(inv=>(
+                        <div key={inv.id} className="inv-item" onClick={()=>setActiveInv(inv)}>
+                          <div className={`inv-status ${inv.messages?.length>1?'status-done':'status-wip'}`}/>
+                          <div className="inv-item-main">
+                            <div className="inv-topic">{inv.topic}</div>
+                            <div className="inv-preview">{inv.summary||'Sin resumen aún'}</div>
+                          </div>
+                          <div className="inv-date">{fmt(inv.created_at)}</div>
+                        </div>
+                      ))}
+                    </div>
+                }
+              </>
+        )}
+        {tab==='calculations'&&<CalculationsTab project={proj} onSave={saveCalculations}/>}
+      </div>
+      {showNewInv&&<NewInvestigationModal onClose={()=>setShowNewInv(false)} onCreate={createInvestigation}/>}
+    </div>
+  );
+}
+
+// ── DASHBOARD ──────────────────────────────────────────────────────────────────
+function Dashboard({ user, projects, onNewProject, onSelectProject, onSignOut }) {
+  return (
+    <div className="dashboard">
+      {!isConfigured&&<SetupNotice/>}
+      <div className="page-header">
+        <div>
+          <div className="page-title">Mis <span>proyectos</span></div>
+          <div style={{fontSize:'.62rem',color:'var(--muted)',marginTop:'.3rem'}}>Hola, {user?.email?.split('@')[0]||user?.name||'investigador'}</div>
+        </div>
+        <button className="btn btn-primary" onClick={onNewProject}>+ Nuevo proyecto</button>
+      </div>
+      {projects.length===0
+        ? <div className="empty-state"><div className="big">📁</div><p>Crea tu primer proyecto de investigación</p><button className="btn btn-primary" onClick={onNewProject}>+ Crear proyecto</button></div>
+        : <div className="projects-grid">
+            {projects.map(p=>(
+              <div key={p.id} className="project-card" onClick={()=>onSelectProject(p)}>
+                <div className="project-card-header">
+                  <div className="project-name">{p.name}</div>
+                </div>
+                {p.description&&<div className="project-meta">{p.description}</div>}
+                <div className="project-meta" style={{marginBottom:'.6rem'}}>{fmt(p.created_at)}</div>
+                <div className="project-stats">
+                  <span className="stat-badge stat-inv">{(p.investigations||[]).length} invest.</span>
+                  <span className="stat-badge stat-calc">{(p.calculations||[]).length} calc.</span>
+                </div>
+              </div>
+            ))}
+            <div className="new-project-card" onClick={onNewProject}>
+              <span style={{fontSize:'1.5rem',opacity:.4}}>+</span>
+              <span>Nuevo proyecto</span>
+            </div>
+          </div>
+      }
+    </div>
+  );
+}
+
+// ── ROOT APP ──────────────────────────────────────────────────────────────────
+function App() {
+  const [user, setUser] = useState(null);
+  const [projects, setProjects] = useState([]);
+  const [activeProject, setActiveProject] = useState(null);
+  const [showNewProject, setShowNewProject] = useState(false);
+  const [demoMode, setDemoMode] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  useEffect(()=>{
+    if(!isConfigured){ setAuthLoading(false); return; }
+    supabase.auth.getSession().then(({data:{session}})=>{ setUser(session?.user||null); setAuthLoading(false); });
+    const {data:{subscription}} = supabase.auth.onAuthStateChange((_,s)=>{ setUser(s?.user||null); });
+    return ()=>subscription.unsubscribe();
+  },[]);
+
+  useEffect(()=>{
+    if(demoMode){ setProjects(DEMO_PROJECTS); setUser({email:'demo@researchlab.app',name:'Demo'}); }
+  },[demoMode]);
+
+  useEffect(()=>{
+    if(!user||demoMode||!isConfigured) return;
+    const stored = localStorage.getItem(`rl_projects_${user.id}`);
+    if(stored) try{ setProjects(JSON.parse(stored)); }catch(e){}
+  },[user,demoMode]);
+
+  function saveProjects(ps) {
+    setProjects(ps);
+    if(user&&!demoMode&&isConfigured) localStorage.setItem(`rl_projects_${user.id}`,JSON.stringify(ps));
+  }
+
+  function createProject(name, desc) {
+    const p = { id:'p'+Date.now(), name, description:desc, created_at:new Date().toISOString(), investigations:[], calculations:[] };
+    const updated = [p,...projects];
+    saveProjects(updated);
+    setShowNewProject(false);
+    setActiveProject(p);
+  }
+
+  function updateProject(updated) {
+    const ps = projects.map(p=>p.id===updated.id?updated:p);
+    saveProjects(ps);
+    setActiveProject(updated);
+  }
+
+  async function signOut() {
+    if(demoMode){ setDemoMode(false); setUser(null); setProjects([]); setActiveProject(null); return; }
+    if(isConfigured) await supabase.auth.signOut();
+    setUser(null); setProjects([]); setActiveProject(null);
+  }
+
+  if(authLoading) return <div style={{display:'grid',placeItems:'center',height:'100vh',color:'var(--muted)',fontSize:'.7rem'}}>Cargando…</div>;
+  if(!user&&!demoMode) return <AuthPage onDemoMode={()=>setDemoMode(true)}/>;
+
+  return (
+    <div className="app">
+      <header className="header">
+        <div className="logo">Research<span>Lab</span></div>
+        <div className="header-right">
+          {demoMode&&<span style={{fontSize:'.58rem',background:'rgba(212,130,15,.1)',color:'var(--amber)',border:'1px solid rgba(212,130,15,.25)',padding:'.2rem .5rem',borderRadius:2,letterSpacing:'.08em'}}>DEMO</span>}
+          {activeProject&&<button className="btn btn-ghost" onClick={()=>setActiveProject(null)}>← Proyectos</button>}
+          <div className="avatar" title={user?.email} onClick={signOut} style={{cursor:'pointer'}} title="Cerrar sesión">
+            {(user?.email?.[0]||user?.name?.[0]||'U').toUpperCase()}
+          </div>
+        </div>
+      </header>
+      {activeProject
+        ? <ProjectPage project={activeProject} onBack={()=>setActiveProject(null)} onUpdate={updateProject}/>
+        : <Dashboard user={user} projects={projects} onNewProject={()=>setShowNewProject(true)} onSelectProject={p=>{setActiveProject(p);}} onSignOut={signOut}/>
+      }
+      {showNewProject&&<NewProjectModal onClose={()=>setShowNewProject(false)} onCreate={createProject}/>}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

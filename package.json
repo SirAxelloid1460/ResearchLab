@@ -1,0 +1,38 @@
+{
+  "name": "researchlab",
+  "version": "0.1.0",
+  "description": "AI-powered research and data analysis platform with Supabase auth and Claude AI integration",
+  "author": "SirAxelloid1460",
+  "license": "GPL-3.0",
+  "homepage": "https://SirAxelloid1460.github.io/researchlab",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SirAxelloid1460/researchlab.git"
+  },
+  "bugs": {
+    "url": "https://github.com/SirAxelloid1460/researchlab/issues"
+  },
+  "scripts": {
+    "dev": "npx serve public -p 3000",
+    "build": "echo 'Static project — no build step required. Deploy the /public folder.'",
+    "deploy": "gh-pages -d public",
+    "lint": "npx htmlhint public/index.html",
+    "preview": "npx serve public -p 8080"
+  },
+  "devDependencies": {
+    "gh-pages": "^6.1.1",
+    "serve": "^14.2.3",
+    "htmlhint": "^1.1.4"
+  },
+  "keywords": [
+    "research",
+    "ai",
+    "claude",
+    "supabase",
+    "data-analysis",
+    "investigation"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
