@@ -235,6 +235,33 @@ body::after { content:''; position:fixed; inset:0; background-image:url("data:im
 .card-action-btn:hover { border-color:var(--ink); color:var(--ink); }
 .card-action-btn.danger:hover { border-color:var(--accent); color:var(--accent); }
 
+/* USER MENU */
+.user-menu-wrap { position:relative; }
+.user-menu-dropdown {
+  position:absolute; top:calc(100% + .5rem); right:0;
+  background:var(--surface); border:1.5px solid var(--ink);
+  border-radius:6px; min-width:180px; z-index:200;
+  box-shadow:3px 3px 0 var(--ink);
+  overflow:hidden; animation:modalIn .15s ease;
+}
+.user-menu-info {
+  padding:.7rem 1rem;
+  border-bottom:1px solid var(--rule);
+  font-size:.62rem; color:var(--muted);
+  line-height:1.4;
+}
+.user-menu-info strong { display:block; color:var(--ink); font-size:.7rem; margin-bottom:.1rem; font-family:'Syne',sans-serif; font-weight:700; }
+.user-menu-item {
+  display:flex; align-items:center; gap:.6rem;
+  width:100%; padding:.65rem 1rem;
+  background:none; border:none; cursor:pointer;
+  font-family:'Fira Code',monospace; font-size:.68rem;
+  color:var(--ink); text-align:left; transition:background .1s;
+}
+.user-menu-item:hover { background:var(--bg); }
+.user-menu-item.danger { color:var(--accent); }
+.user-menu-item.danger:hover { background:rgba(201,79,44,.06); }
+
 /* SETUP NOTICE */
 .setup-notice { background:rgba(212,130,15,.08); border:1px solid rgba(212,130,15,.3); border-radius:6px; padding:1rem 1.2rem; margin-bottom:1.5rem; font-size:.68rem; }
 .setup-notice strong { color:var(--amber); font-family:'Syne',sans-serif; }
@@ -960,6 +987,40 @@ function Dashboard({ user, projects, onNewProject, onSelectProject, onEditProjec
   );
 }
 
+// ── USER MENU ─────────────────────────────────────────────────────────────────
+function UserMenu({ user, onSignOut }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(()=>{
+    function handleClick(e) { if(ref.current && !ref.current.contains(e.target)) setOpen(false); }
+    document.addEventListener('mousedown', handleClick);
+    return ()=>document.removeEventListener('mousedown', handleClick);
+  },[]);
+
+  const initial = (user?.email?.[0]||user?.name?.[0]||'U').toUpperCase();
+  const email = user?.email || user?.name || 'Usuario';
+
+  return (
+    <div className="user-menu-wrap" ref={ref}>
+      <div className="avatar" onClick={()=>setOpen(o=>!o)} style={{cursor:'pointer'}} title="Menú de usuario">
+        {initial}
+      </div>
+      {open&&(
+        <div className="user-menu-dropdown">
+          <div className="user-menu-info">
+            <strong>{initial} {email.split('@')[0]}</strong>
+            {user?.email&&<span>{user.email}</span>}
+          </div>
+          <button className="user-menu-item danger" onClick={()=>{ setOpen(false); onSignOut(); }}>
+            <span>⎋</span> Cerrar sesión
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── ROOT APP ──────────────────────────────────────────────────────────────────
 function App() {
   const [user, setUser] = useState(null);
@@ -978,7 +1039,14 @@ function App() {
       supabase.auth.getSession().then(({data:{session}})=>{
         setUser(session?.user||null); setAuthLoading(false);
       });
-      const { data } = supabase.auth.onAuthStateChange((_,s)=>{ setUser(s?.user||null); });
+      const { data } = supabase.auth.onAuthStateChange((event, s)=>{
+        if(event === 'SIGNED_OUT') {
+          setUser(null); setProjects([]); setActiveProject(null);
+          setShowNewProject(false); setDemoMode(false); setDataLoading(false);
+        } else {
+          setUser(s?.user||null);
+        }
+      });
       subscription = data.subscription;
     });
     return ()=>subscription?.unsubscribe();
@@ -1045,9 +1113,15 @@ function App() {
   }
 
   async function signOut() {
-    if(demoMode){ setDemoMode(false); setUser(null); setProjects([]); setActiveProject(null); return; }
     if(isConfigured) await supabase.auth.signOut();
-    setUser(null); setProjects([]); setActiveProject(null);
+    // Full state reset — ensures login screen renders cleanly
+    setUser(null);
+    setProjects([]);
+    setActiveProject(null);
+    setShowNewProject(false);
+    setDemoMode(false);
+    setDataLoading(false);
+    setDbError(null);
   }
 
   if(authLoading) return (
@@ -1067,9 +1141,7 @@ function App() {
         <div className="header-right">
           {demoMode&&<span style={{fontSize:'.58rem',background:'rgba(212,130,15,.1)',color:'var(--amber)',border:'1px solid rgba(212,130,15,.25)',padding:'.2rem .5rem',borderRadius:2,letterSpacing:'.08em'}}>DEMO</span>}
           {activeProject&&<button className="btn btn-ghost" onClick={()=>setActiveProject(null)}>← Proyectos</button>}
-          <div className="avatar" onClick={signOut} title="Cerrar sesión">
-            {(user?.email?.[0]||user?.name?.[0]||'U').toUpperCase()}
-          </div>
+          <UserMenu user={user} onSignOut={signOut}/>
         </div>
       </header>
       {dbError&&(
