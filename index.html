@@ -1041,9 +1041,14 @@ function App() {
       });
       const { data } = supabase.auth.onAuthStateChange((event, s)=>{
         if(event === 'SIGNED_OUT') {
+          window.history.replaceState(null, '', window.location.pathname);
           setUser(null); setProjects([]); setActiveProject(null);
           setShowNewProject(false); setDemoMode(false); setDataLoading(false);
-        } else {
+        } else if(event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          // Clean the hash once Supabase has processed the OAuth token
+          if(window.location.hash) {
+            window.history.replaceState(null, '', window.location.pathname);
+          }
           setUser(s?.user||null);
         }
       });
@@ -1114,7 +1119,9 @@ function App() {
 
   async function signOut() {
     if(isConfigured) await supabase.auth.signOut();
-    // Full state reset — ensures login screen renders cleanly
+    // Clean the URL hash left by OAuth tokens
+    window.history.replaceState(null, '', window.location.pathname);
+    // Full state reset
     setUser(null);
     setProjects([]);
     setActiveProject(null);
