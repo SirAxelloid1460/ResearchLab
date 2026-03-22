@@ -1037,28 +1037,51 @@ function App() {
     let sub;
 
     supabasePromise.then(async ()=>{
-      // Register auth listener FIRST so SIGNED_IN fires before getSession
+      // Fix double-hash bug: GitHub Pages + Supabase OAuth produces ##access_token
+      // Strip extra leading hashes so Supabase can parse the token
+      const rawHash = window.location.hash;
+      if(rawHash.startsWith('##') || rawHash.startsWith('#%23')) {
+        const cleanHash = '#' + rawHash.replace(/^#+/, '');
+        window.history.replaceState(null, '', window.location.pathname + cleanHash);
+      }
+
+      // If there's an access_token in the hash, parse and set the session manually
+      const hash = window.location.hash.replace(/^#+/, '');
+      if(hash.includes('access_token')) {
+        const params = new URLSearchParams(hash);
+        const accessToken = params.get('access_token');
+        const refreshToken = params.get('refresh_token');
+        if(accessToken && refreshToken) {
+          const { data: sessionData, error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+          if(!error && sessionData?.session) {
+            window.history.replaceState(null, '', window.location.pathname);
+            setUser(sessionData.session.user);
+            setAuthLoading(false);
+            return;
+          }
+        }
+      }
+
+      // Normal auth listener for subsequent events
       const { data } = supabase.auth.onAuthStateChange((event, s)=>{
         if(event === 'SIGNED_OUT') {
           window.history.replaceState(null, '', window.location.pathname);
           setUser(null); setProjects([]); setActiveProject(null);
           setShowNewProject(false); setDemoMode(false); setDataLoading(false);
         } else if(event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') {
-          if(window.location.hash) {
-            window.history.replaceState(null, '', window.location.pathname);
-          }
+          if(window.location.hash) window.history.replaceState(null, '', window.location.pathname);
           setUser(s?.user || null);
           setAuthLoading(false);
         }
       });
       sub = data.subscription;
 
-      // Then check for existing session (or OAuth hash token)
       const { data: { session } } = await supabase.auth.getSession();
       if(session) {
-        if(window.location.hash) {
-          window.history.replaceState(null, '', window.location.pathname);
-        }
+        if(window.location.hash) window.history.replaceState(null, '', window.location.pathname);
         setUser(session.user);
       }
       setAuthLoading(false);
