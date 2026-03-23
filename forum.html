@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ResearchLab — Foro de investigaciones</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Fira+Code:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f4f0e6;--ink:#1c1814;--paper:#faf7f1;--rule:#d8d3c8;--muted:#8c877e;--accent:#c94f2c;--blue:#2563c4;--green:#1a9e5c;--amber:#d4820f;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);font-family:'Fira Code',monospace;color:var(--ink);min-height:100vh;}
+body::after{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");pointer-events:none;z-index:9999;}
+
+nav{background:var(--paper);border-bottom:2px solid var(--ink);padding:.8rem 2rem;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+.logo{font-family:'Syne',sans-serif;font-weight:800;font-size:1.1rem;letter-spacing:-.03em;text-decoration:none;color:var(--ink);}
+.logo span{color:var(--accent);}
+.nav-links{display:flex;align-items:center;gap:.6rem;}
+.nav-link{font-size:.65rem;color:var(--muted);text-decoration:none;letter-spacing:.05em;transition:color .15s;}
+.nav-link:hover{color:var(--ink);}
+.nav-link.active{color:var(--ink);border-bottom:1.5px solid var(--ink);}
+.nav-cta{background:var(--ink);color:var(--bg);text-decoration:none;padding:.45rem 1rem;border-radius:3px;font-family:'Syne',sans-serif;font-weight:700;font-size:.68rem;transition:background .15s;}
+.nav-cta:hover{background:var(--accent);}
+
+.layout{max-width:1100px;margin:0 auto;padding:2.5rem 2rem;display:grid;grid-template-columns:1fr 280px;gap:2rem;align-items:start;}
+
+/* MAIN FEED */
+.feed-header{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:.8rem;}
+.feed-title{font-family:'Syne',sans-serif;font-weight:800;font-size:1.6rem;letter-spacing:-.03em;}
+.feed-title span{color:var(--accent);}
+.sort-tabs{display:flex;gap:.3rem;}
+.sort-tab{background:none;border:1px solid var(--rule);color:var(--muted);padding:.4rem .8rem;border-radius:3px;font-family:'Fira Code',monospace;font-size:.62rem;cursor:pointer;transition:all .15s;}
+.sort-tab.active,.sort-tab:hover{border-color:var(--ink);color:var(--ink);}
+.sort-tab.active{background:var(--ink);color:var(--bg);border-color:var(--ink);}
+
+/* INVESTIGATION CARD */
+.inv-card{background:var(--paper);border:1.5px solid var(--rule);border-radius:5px;margin-bottom:1rem;overflow:hidden;transition:border-color .15s;}
+.inv-card:hover{border-color:var(--muted);}
+.inv-card-inner{display:flex;gap:0;}
+.vote-col{display:flex;flex-direction:column;align-items:center;gap:.3rem;padding:.9rem .7rem;border-right:1px solid var(--rule);flex-shrink:0;min-width:52px;}
+.vote-btn{background:none;border:1px solid var(--rule);width:28px;height:28px;border-radius:3px;cursor:pointer;display:grid;place-items:center;font-size:.7rem;transition:all .15s;color:var(--muted);}
+.vote-btn:hover{border-color:var(--ink);color:var(--ink);}
+.vote-btn.liked{background:rgba(26,158,92,.1);border-color:var(--green);color:var(--green);}
+.vote-btn.disliked{background:rgba(201,79,44,.1);border-color:var(--accent);color:var(--accent);}
+.vote-btn:disabled{opacity:.35;cursor:not-allowed;}
+.vote-score{font-family:'Syne',sans-serif;font-weight:700;font-size:.85rem;color:var(--ink);}
+.vote-score.positive{color:var(--green);}
+.vote-score.negative{color:var(--accent);}
+.inv-body{flex:1;padding:1rem 1.2rem;}
+.inv-topic{font-family:'Syne',sans-serif;font-weight:700;font-size:.95rem;margin-bottom:.4rem;line-height:1.3;}
+.inv-preview{font-size:.68rem;color:var(--muted);line-height:1.65;margin-bottom:.7rem;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}
+.inv-footer{display:flex;align-items:center;gap:.8rem;flex-wrap:wrap;}
+.inv-author{display:flex;align-items:center;gap:.4rem;font-size:.6rem;color:var(--muted);}
+.author-avatar{width:18px;height:18px;border-radius:50%;background:var(--ink);color:var(--bg);display:grid;place-items:center;font-size:.5rem;font-family:'Syne',sans-serif;font-weight:700;overflow:hidden;flex-shrink:0;}
+.author-avatar img{width:100%;height:100%;object-fit:cover;}
+.inv-meta-item{font-size:.58rem;color:var(--muted);letter-spacing:.05em;}
+.inv-expand-btn{background:none;border:none;color:var(--accent);font-family:'Fira Code',monospace;font-size:.6rem;cursor:pointer;margin-left:auto;padding:0;transition:opacity .15s;}
+.inv-expand-btn:hover{opacity:.7;}
+.inv-full{border-top:1px solid var(--rule);padding:1rem 1.2rem;font-size:.72rem;line-height:1.75;display:none;}
+.inv-full.open{display:block;}
+.inv-full h3{font-family:'Syne',sans-serif;font-size:.78rem;font-weight:700;color:var(--accent);margin:.7rem 0 .35rem;border-bottom:1px solid var(--rule);padding-bottom:.2rem;}
+.inv-full h3:first-child{margin-top:0;}
+.inv-full strong{color:var(--accent);}
+.inv-full p{margin-bottom:.4rem;}
+.inv-full ul{padding-left:1.1rem;margin:.3rem 0;}
+.inv-full li{margin-bottom:.2rem;}
+.inv-full table{width:100%;border-collapse:collapse;font-size:.63rem;margin:.6rem 0;}
+.inv-full th{background:var(--ink);color:var(--bg);padding:.3rem .5rem;text-align:left;font-family:'Syne',sans-serif;font-size:.55rem;letter-spacing:.08em;text-transform:uppercase;}
+.inv-full td{padding:.28rem .5rem;border-bottom:1px solid var(--rule);}
+.inv-full tr:nth-child(even) td{background:var(--bg);}
+
+/* LOAD MORE */
+.load-more-btn{width:100%;background:none;border:1.5px solid var(--rule);color:var(--muted);padding:.7rem;border-radius:4px;font-family:'Fira Code',monospace;font-size:.68rem;cursor:pointer;transition:all .15s;margin-top:.5rem;}
+.load-more-btn:hover{border-color:var(--ink);color:var(--ink);}
+.load-more-btn:disabled{opacity:.4;cursor:not-allowed;}
+
+/* SIDEBAR */
+.sidebar{display:flex;flex-direction:column;gap:1rem;position:sticky;top:80px;}
+.sidebar-card{background:var(--paper);border:1.5px solid var(--rule);border-radius:5px;overflow:hidden;}
+.sidebar-header{padding:.7rem 1rem;background:var(--ink);color:var(--bg);}
+.sidebar-header-title{font-family:'Syne',sans-serif;font-weight:700;font-size:.75rem;}
+.sidebar-header-sub{font-size:.55rem;opacity:.6;margin-top:.1rem;}
+.sidebar-body{padding:1rem;}
+.top-user{display:flex;align-items:center;gap:.7rem;}
+.top-avatar{width:40px;height:40px;border-radius:50%;background:var(--ink);color:var(--bg);display:grid;place-items:center;font-family:'Syne',sans-serif;font-weight:800;font-size:.9rem;flex-shrink:0;overflow:hidden;}
+.top-avatar img{width:100%;height:100%;object-fit:cover;}
+.top-user-info .name{font-family:'Syne',sans-serif;font-weight:700;font-size:.82rem;}
+.top-user-info .count{font-size:.6rem;color:var(--muted);margin-top:.15rem;}
+.top-inv-title{font-family:'Syne',sans-serif;font-weight:700;font-size:.82rem;margin-bottom:.4rem;line-height:1.3;}
+.top-inv-likes{display:flex;align-items:center;gap:.4rem;font-size:.62rem;color:var(--green);}
+.top-inv-author{font-size:.6rem;color:var(--muted);margin-top:.3rem;}
+.sidebar-stat{display:flex;justify-content:space-between;align-items:center;padding:.5rem 0;border-bottom:1px solid var(--rule);font-size:.65rem;}
+.sidebar-stat:last-child{border-bottom:none;}
+.sidebar-stat-val{font-family:'Syne',sans-serif;font-weight:700;font-size:.9rem;color:var(--accent);}
+.login-notice{background:rgba(37,99,196,.06);border:1px solid rgba(37,99,196,.2);border-radius:4px;padding:.8rem 1rem;font-size:.65rem;color:var(--blue);line-height:1.6;}
+.login-notice a{color:var(--blue);font-weight:600;}
+
+/* STATES */
+.empty-state,.loading-state{text-align:center;padding:3rem;color:var(--muted);font-size:.72rem;}
+.dots{display:flex;gap:3px;justify-content:center;margin-bottom:.5rem;}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:bounce 1.2s infinite;}
+.dot:nth-child(2){animation-delay:.2s}.dot:nth-child(3){animation-delay:.4s}
+@keyframes bounce{0%,80%,100%{transform:scale(.6);opacity:.4}40%{transform:scale(1);opacity:1}}
+
+@media(max-width:768px){
+  .layout{grid-template-columns:1fr;padding:1.5rem 1rem;}
+  .sidebar{position:static;}
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="./index.html" class="logo">Research<span>Lab</span></a>
+  <div class="nav-links">
+    <a href="./index.html" class="nav-link">Inicio</a>
+    <a href="#" class="nav-link active">Foro</a>
+    <a href="./app.html" class="nav-cta">Abrir app →</a>
+  </div>
+</nav>
+
+<div class="layout">
+  <div class="feed-col">
+    <div class="feed-header">
+      <h1 class="feed-title">Foro de <span>investigaciones</span></h1>
+      <div class="sort-tabs">
+        <button class="sort-tab active" data-sort="likes" onclick="setSort('likes',this)">↑ Más votadas</button>
+        <button class="sort-tab" data-sort="recent" onclick="setSort('recent',this)">🕐 Recientes</button>
+      </div>
+    </div>
+    <div id="login-notice" class="login-notice" style="margin-bottom:1rem;display:none">
+      <a href="./app.html">Inicia sesión</a> para poder votar investigaciones y participar en la comunidad.
+    </div>
+    <div id="feed"></div>
+    <button id="load-more" class="load-more-btn" onclick="loadMore()" style="display:none">Cargar más</button>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-card" id="highlights-card">
+      <div class="sidebar-header">
+        <div class="sidebar-header-title">🏆 Destacados</div>
+        <div class="sidebar-header-sub">Top de la comunidad</div>
+      </div>
+      <div class="sidebar-body" id="highlights-body">
+        <div class="loading-state"><div class="dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div>
+      </div>
+    </div>
+    <div class="sidebar-card">
+      <div class="sidebar-header">
+        <div class="sidebar-header-title">📊 Comunidad</div>
+      </div>
+      <div class="sidebar-body" id="stats-body">
+        <div class="sidebar-stat"><span>Investigaciones</span><span class="sidebar-stat-val" id="s-inv">—</span></div>
+        <div class="sidebar-stat"><span>Votos totales</span><span class="sidebar-stat-val" id="s-votes">—</span></div>
+        <div class="sidebar-stat"><span>Investigadores</span><span class="sidebar-stat-val" id="s-users">—</span></div>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<script>
+const SUPA_URL = 'https://lkvkplvmilhequqswxsp.supabase.co';
+const FEED_URL = `${SUPA_URL}/functions/v1/forum-feed`;
+const VOTE_URL = `${SUPA_URL}/functions/v1/forum-vote`;
+const HIGHLIGHTS_URL = `${SUPA_URL}/functions/v1/forum-highlights`;
+const STATS_URL = `${SUPA_URL}/functions/v1/public-stats`;
+
+let page = 0;
+let sort = 'likes';
+let hasMore = false;
+let loading = false;
+let session = null;
+let investigations = [];
+
+// Get session from Supabase (if user is logged in via app)
+async function getSession() {
+  try {
+    const mod = await import('https://esm.sh/@supabase/supabase-js@2');
+    const sb = mod.createClient(SUPA_URL, 'sb_publishable_oU7n1cAVs2YiFbTIIxz3gg_rHCFZLkr');
+    const { data: { session: s } } = await sb.auth.getSession();
+    session = s;
+    if (!s) document.getElementById('login-notice').style.display = 'block';
+  } catch(e) { console.log('Auth check failed:', e); }
+}
+
+function fmt(d) { return new Date(d).toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'}); }
+
+function parseMarkdown(text) {
+  let h = text || '';
+  h = h.replace(/\[CHART:[^\]]+\]/g, '');
+  h = h.replace(/^## (.+)$/gm,'<h3>$1</h3>');
+  h = h.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+  h = h.replace(/\|(.+)\|\n\|[-| :]+\|\n((?:\|.+\|\n?)+)/g, (_, hd, rows) => {
+    const ths = hd.split('|').filter(Boolean).map(c=>`<th>${c.trim()}</th>`).join('');
+    const trs = rows.trim().split('\n').map(r=>{
+      const tds = r.split('|').filter(Boolean).map(c=>`<td>${c.trim()}</td>`).join('');
+      return `<tr>${tds}</tr>`;
+    }).join('');
+    return `<table><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table>`;
+  });
+  h = h.replace(/^[-•] (.+)$/gm,'<li>$1</li>');
+  h = h.replace(/(<li>[\s\S]*?<\/li>\n?)+/g,m=>`<ul>${m}</ul>`);
+  h = h.split('\n\n').map(b=>b.startsWith('<')?b:`<p>${b.replace(/\n/g,'<br>')}</p>`).join('');
+  return h;
+}
+
+function renderCard(inv) {
+  const score = inv.forum_likes - inv.forum_dislikes;
+  const scoreClass = score > 0 ? 'positive' : score < 0 ? 'negative' : '';
+  const avatarHtml = inv.author.avatar_url
+    ? `<div class="author-avatar"><img src="${inv.author.avatar_url}" alt=""></div>`
+    : `<div class="author-avatar">${(inv.author.name||'U')[0].toUpperCase()}</div>`;
+  const likedClass = inv.user_vote === 1 ? ' liked' : '';
+  const dislikedClass = inv.user_vote === -1 ? ' disliked' : '';
+  const disabled = !session ? ' disabled' : '';
+
+  return `
+    <div class="inv-card" id="card-${inv.id}">
+      <div class="inv-card-inner">
+        <div class="vote-col">
+          <button class="vote-btn${likedClass}" title="Me gusta"${disabled}
+            onclick="vote('${inv.id}', ${inv.user_vote === 1 ? 0 : 1})">▲</button>
+          <span class="vote-score ${scoreClass}">${score >= 0 ? '+' : ''}${score}</span>
+          <button class="vote-btn${dislikedClass}" title="No me gusta"${disabled}
+            onclick="vote('${inv.id}', ${inv.user_vote === -1 ? 0 : -1})">▼</button>
+        </div>
+        <div class="inv-body">
+          <div class="inv-topic">${inv.topic}</div>
+          <div class="inv-preview">${inv.preview || inv.summary || 'Sin contenido aún.'}</div>
+          <div class="inv-footer">
+            <div class="inv-author">${avatarHtml}<span>${inv.author.name || 'Investigador'}</span></div>
+            <span class="inv-meta-item">${fmt(inv.created_at)}</span>
+            <span class="inv-meta-item">💬 ${inv.message_count} mensajes</span>
+            <span class="inv-meta-item">👍 ${inv.forum_likes} · 👎 ${inv.forum_dislikes}</span>
+            <button class="inv-expand-btn" onclick="toggleExpand('${inv.id}')">Ver completa ↓</button>
+          </div>
+        </div>
+      </div>
+      <div class="inv-full" id="full-${inv.id}">
+        <div class="loading-state" id="full-loading-${inv.id}">
+          <div class="dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function toggleExpand(id) {
+  const full = document.getElementById(`full-${id}`);
+  const isOpen = full.classList.contains('open');
+  if (isOpen) { full.classList.remove('open'); return; }
+  full.classList.add('open');
+  // Load content
+  const inv = investigations.find(i => i.id === id);
+  if (!inv) return;
+  fetch(`${SUPA_URL}/functions/v1/public-project?slug=__inv__${id}`)
+    .catch(()=>{});
+  // Use cached data
+  const loadingEl = document.getElementById(`full-loading-${id}`);
+  if (loadingEl) {
+    loadingEl.style.display = 'none';
+    const preview = document.createElement('div');
+    preview.innerHTML = parseMarkdown(inv.preview || inv.summary || '');
+    full.appendChild(preview);
+  }
+}
+
+async function vote(invId, voteVal) {
+  if (!session) return;
+  const inv = investigations.find(i => i.id === invId);
+  if (!inv) return;
+
+  try {
+    const res = await fetch(VOTE_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ investigation_id: invId, vote: voteVal }),
+    });
+    const data = await res.json();
+    if (data.error) { alert(data.error); return; }
+
+    // Update local state
+    inv.forum_likes = data.forum_likes;
+    inv.forum_dislikes = data.forum_dislikes;
+    inv.user_vote = data.user_vote;
+
+    // Re-render card
+    const card = document.getElementById(`card-${invId}`);
+    if (card) {
+      const tmp = document.createElement('div');
+      tmp.innerHTML = renderCard(inv);
+      card.replaceWith(tmp.firstElementChild);
+    }
+  } catch(e) { console.error(e); }
+}
+
+async function loadFeed(reset = false) {
+  if (loading) return;
+  loading = true;
+  if (reset) { page = 0; investigations = []; document.getElementById('feed').innerHTML = '<div class="loading-state"><div class="dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div><p>Cargando investigaciones…</p></div>'; }
+
+  try {
+    const headers = {};
+    if (session) headers['Authorization'] = `Bearer ${session.access_token}`;
+    const res = await fetch(`${FEED_URL}?page=${page}&sort=${sort}`, { headers });
+    const data = await res.json();
+
+    if (reset) document.getElementById('feed').innerHTML = '';
+
+    if (data.investigations?.length === 0 && page === 0) {
+      document.getElementById('feed').innerHTML = '<div class="empty-state">Aún no hay investigaciones en el foro. ¡Sé el primero!</div>';
+    } else {
+      investigations.push(...(data.investigations || []));
+      data.investigations.forEach(inv => {
+        const tmp = document.createElement('div');
+        tmp.innerHTML = renderCard(inv);
+        document.getElementById('feed').appendChild(tmp.firstElementChild);
+      });
+    }
+
+    hasMore = data.has_more;
+    document.getElementById('load-more').style.display = hasMore ? 'block' : 'none';
+    page++;
+  } catch(e) {
+    document.getElementById('feed').innerHTML = '<div class="empty-state">Error al cargar el foro. Intenta de nuevo.</div>';
+  }
+  loading = false;
+}
+
+function loadMore() { loadFeed(false); }
+
+function setSort(s, btn) {
+  sort = s;
+  document.querySelectorAll('.sort-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  loadFeed(true);
+}
+
+async function loadHighlights() {
+  try {
+    const res = await fetch(HIGHLIGHTS_URL);
+    const data = await res.json();
+    const body = document.getElementById('highlights-body');
+
+    if (!data.top_user && !data.top_investigation) {
+      body.innerHTML = '<p style="font-size:.65rem;color:var(--muted)">Aún no hay suficientes datos.</p>';
+      return;
+    }
+
+    let html = '';
+    if (data.top_user) {
+      const av = data.top_user.avatar_url
+        ? `<div class="top-avatar"><img src="${data.top_user.avatar_url}"></div>`
+        : `<div class="top-avatar">${(data.top_user.name||'U')[0].toUpperCase()}</div>`;
+      html += `
+        <p style="font-size:.55rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.6rem">Investigador más activo</p>
+        <div class="top-user">
+          ${av}
+          <div class="top-user-info">
+            <div class="name">${data.top_user.name || 'Investigador'}</div>
+            <div class="count">${data.top_user.investigation_count} investigaciones</div>
+          </div>
+        </div>
+      `;
+    }
+    if (data.top_investigation) {
+      html += `<div style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--rule)">`;
+      html += `<p style="font-size:.55rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.6rem">Investigación más votada</p>`;
+      html += `<div class="top-inv-title">${data.top_investigation.topic}</div>`;
+      html += `<div class="top-inv-likes">👍 ${data.top_investigation.forum_likes} likes</div>`;
+      html += `<div class="top-inv-author">por ${data.top_investigation.author?.name || 'Investigador'}</div>`;
+      html += `</div>`;
+    }
+    body.innerHTML = html;
+  } catch(e) { console.error(e); }
+}
+
+async function loadStats() {
+  try {
+    const res = await fetch(STATS_URL);
+    const data = await res.json();
+    document.getElementById('s-inv').textContent = data.investigations ?? '—';
+    document.getElementById('s-votes').textContent = (data.investigations || 0) > 0 ? '⬆' : '0';
+    document.getElementById('s-users').textContent = data.users ?? '—';
+  } catch(e) {}
+}
+
+// Init
+(async () => {
+  await getSession();
+  await Promise.all([loadFeed(true), loadHighlights(), loadStats()]);
+})();
+</script>
+</body>
+</html>

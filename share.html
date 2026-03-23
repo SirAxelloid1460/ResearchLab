@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ResearchLab — Proyecto compartido</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Fira+Code:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#f4f0e6; --ink:#1c1814; --paper:#faf7f1; --rule:#d8d3c8;
+  --muted:#8c877e; --accent:#c94f2c; --blue:#2563c4; --green:#1a9e5c; --amber:#d4820f;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);font-family:'Fira Code',monospace;color:var(--ink);min-height:100vh;}
+body::after{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");pointer-events:none;z-index:9999;}
+nav{background:var(--paper);border-bottom:2px solid var(--ink);padding:.8rem 2rem;display:flex;align-items:center;justify-content:space-between;}
+.logo{font-family:'Syne',sans-serif;font-weight:800;font-size:1.1rem;letter-spacing:-.03em;text-decoration:none;color:var(--ink);}
+.logo span{color:var(--accent);}
+.nav-badge{font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;background:rgba(201,79,44,.1);color:var(--accent);border:1px solid rgba(201,79,44,.2);padding:.2rem .5rem;border-radius:2px;}
+.nav-cta{background:var(--ink);color:var(--bg);text-decoration:none;padding:.45rem 1rem;border-radius:3px;font-family:'Syne',sans-serif;font-weight:700;font-size:.68rem;transition:background .15s;}
+.nav-cta:hover{background:var(--accent);}
+.container{max-width:860px;margin:0 auto;padding:3rem 2rem;}
+/* Loading / Error */
+.state-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;gap:1rem;text-align:center;}
+.state-icon{font-size:2.5rem;opacity:.3;}
+.state-title{font-family:'Syne',sans-serif;font-weight:800;font-size:1.3rem;}
+.state-sub{font-size:.72rem;color:var(--muted);line-height:1.6;}
+.dots{display:flex;gap:3px;justify-content:center;}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:bounce 1.2s infinite;}
+.dot:nth-child(2){animation-delay:.2s}.dot:nth-child(3){animation-delay:.4s}
+@keyframes bounce{0%,80%,100%{transform:scale(.6);opacity:.4}40%{transform:scale(1);opacity:1}}
+/* Project header */
+.project-hero{border-bottom:2px solid var(--ink);padding-bottom:2rem;margin-bottom:2.5rem;}
+.project-eyebrow{font-size:.58rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.6rem;display:flex;align-items:center;gap:.5rem;}
+.project-eyebrow::before{content:'';display:block;width:16px;height:1px;background:var(--accent);}
+.project-title{font-family:'Syne',sans-serif;font-weight:800;font-size:clamp(1.8rem,4vw,2.8rem);letter-spacing:-.03em;line-height:1.05;margin-bottom:.8rem;}
+.project-desc{font-size:.78rem;color:var(--muted);line-height:1.7;max-width:600px;margin-bottom:1.2rem;}
+.project-meta{display:flex;gap:1.5rem;flex-wrap:wrap;}
+.meta-item{font-size:.6rem;letter-spacing:.08em;color:var(--muted);display:flex;align-items:center;gap:.3rem;}
+.meta-badge{font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.18rem .45rem;border-radius:2px;border:1px solid;}
+.badge-inv{background:rgba(37,99,196,.07);color:var(--blue);border-color:rgba(37,99,196,.2);}
+.badge-calc{background:rgba(212,130,15,.07);color:var(--amber);border-color:rgba(212,130,15,.2);}
+/* Sections */
+.section-title{font-family:'Syne',sans-serif;font-weight:800;font-size:1rem;letter-spacing:-.01em;margin-bottom:1rem;display:flex;align-items:center;gap:.6rem;}
+.section-title span{font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-family:'Fira Code',monospace;font-weight:400;}
+.section{margin-bottom:3rem;}
+/* Investigation cards */
+.inv-card{background:var(--paper);border:1.5px solid var(--rule);border-radius:5px;margin-bottom:1rem;overflow:hidden;}
+.inv-card-header{padding:1rem 1.3rem;cursor:pointer;display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;transition:background .15s;}
+.inv-card-header:hover{background:var(--bg);}
+.inv-card-topic{font-family:'Syne',sans-serif;font-weight:700;font-size:.9rem;flex:1;}
+.inv-card-meta{font-size:.6rem;color:var(--muted);margin-top:.3rem;}
+.inv-toggle{font-size:.7rem;color:var(--muted);flex-shrink:0;transition:transform .2s;}
+.inv-toggle.open{transform:rotate(180deg);}
+.inv-card-body{border-top:1px solid var(--rule);padding:1.2rem 1.3rem;}
+/* Messages */
+.msg{display:flex;flex-direction:column;gap:.25rem;max-width:680px;margin-bottom:.9rem;}
+.msg.user{align-self:flex-end;align-items:flex-end;margin-left:auto;}
+.msg-lbl{font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);padding:0 .25rem;}
+.msg-bubble{padding:.75rem 1rem;border-radius:4px;font-size:.72rem;line-height:1.75;}
+.msg.user .msg-bubble{background:var(--ink);color:var(--bg);border-radius:4px 4px 2px 4px;}
+.msg.ai .msg-bubble{background:white;border:1px solid var(--rule);border-radius:4px 4px 4px 2px;}
+.msg.ai .msg-bubble h3{font-family:'Syne',sans-serif;font-size:.78rem;font-weight:700;color:var(--accent);border-bottom:1px solid var(--rule);padding-bottom:.2rem;margin:.7rem 0 .35rem;}
+.msg.ai .msg-bubble h3:first-child{margin-top:0;}
+.msg.ai .msg-bubble strong{color:var(--accent);}
+.msg.ai .msg-bubble table{width:100%;border-collapse:collapse;font-size:.63rem;margin:.6rem 0;}
+.msg.ai .msg-bubble th{background:var(--ink);color:var(--bg);padding:.3rem .5rem;text-align:left;font-family:'Syne',sans-serif;font-size:.56rem;letter-spacing:.08em;text-transform:uppercase;}
+.msg.ai .msg-bubble td{padding:.28rem .5rem;border-bottom:1px solid var(--rule);}
+.msg.ai .msg-bubble tr:nth-child(even) td{background:var(--bg);}
+.msg.ai .msg-bubble p{margin-bottom:.4rem;}
+.msg.ai .msg-bubble ul{padding-left:1.1rem;margin:.3rem 0;}
+.msg.ai .msg-bubble li{margin-bottom:.2rem;}
+.msg.ai .msg-bubble code{background:var(--bg);padding:.1rem .25rem;border-radius:2px;font-size:.67rem;border:1px solid var(--rule);}
+/* Calc cards */
+.calc-card{background:var(--paper);border:1.5px solid var(--rule);border-radius:5px;margin-bottom:1rem;overflow:hidden;}
+.calc-card-header{padding:1rem 1.3rem;cursor:pointer;display:flex;align-items:center;gap:.8rem;transition:background .15s;}
+.calc-card-header:hover{background:var(--bg);}
+.calc-type-pill{font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .5rem;border-radius:2px;}
+.pill-cross{background:rgba(201,79,44,.1);color:var(--accent);}
+.pill-projection{background:rgba(37,99,196,.1);color:var(--blue);}
+.pill-correlation{background:rgba(26,158,92,.1);color:var(--green);}
+.pill-formula{background:rgba(212,130,15,.1);color:var(--amber);}
+.calc-title{font-family:'Syne',sans-serif;font-weight:700;font-size:.88rem;flex:1;}
+.calc-body{border-top:1px solid var(--rule);padding:1.2rem 1.3rem;font-size:.72rem;line-height:1.75;}
+.calc-body h3{font-family:'Syne',sans-serif;font-size:.78rem;font-weight:700;color:var(--accent);margin:.7rem 0 .35rem;}
+.calc-body h3:first-child{margin-top:0;}
+.calc-body strong{color:var(--accent);}
+.calc-body table{width:100%;border-collapse:collapse;font-size:.63rem;margin:.6rem 0;}
+.calc-body th{background:var(--ink);color:var(--bg);padding:.3rem .5rem;text-align:left;font-family:'Syne',sans-serif;font-size:.56rem;letter-spacing:.08em;text-transform:uppercase;}
+.calc-body td{padding:.28rem .5rem;border-bottom:1px solid var(--rule);}
+.calc-body tr:nth-child(even) td{background:var(--bg);}
+.calc-body p{margin-bottom:.4rem;}
+.calc-body ul{padding-left:1.1rem;margin:.3rem 0;}
+.calc-body li{margin-bottom:.2rem;}
+/* Inline charts */
+.inline-chart{display:flex;flex-direction:column;gap:.4rem;margin:.7rem 0;}
+.chart-row{display:flex;align-items:center;gap:.6rem;font-size:.62rem;}
+.chart-lbl{width:120px;flex-shrink:0;color:var(--muted);}
+.chart-bar-wrap{flex:1;height:14px;background:var(--bg);border:1px solid var(--rule);border-radius:2px;overflow:hidden;}
+.chart-bar{height:100%;transition:width 1s cubic-bezier(.34,1.2,.64,1);}
+.chart-val{width:50px;text-align:right;font-weight:500;}
+/* Footer */
+.share-footer{border-top:2px solid var(--ink);padding:1.5rem 2rem;background:var(--paper);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.8rem;}
+.share-footer p{font-size:.62rem;color:var(--muted);}
+@media(max-width:600px){.container{padding:2rem 1rem;}.share-footer{padding:1rem;}}
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="./index.html" class="logo">Research<span>Lab</span></a>
+  <div style="display:flex;align-items:center;gap:.8rem;">
+    <span class="nav-badge">Vista pública</span>
+    <a href="./app.html" class="nav-cta">Abrir app →</a>
+  </div>
+</nav>
+
+<div id="loading" class="container">
+  <div class="state-screen">
+    <div class="dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+    <p style="font-size:.7rem;color:var(--muted)">Cargando proyecto…</p>
+  </div>
+</div>
+
+<div id="error" class="container" style="display:none">
+  <div class="state-screen">
+    <div class="state-icon">🔒</div>
+    <div class="state-title">Proyecto no encontrado</div>
+    <p class="state-sub">Este proyecto no existe o no está disponible públicamente.<br>Puede que el autor haya desactivado el acceso público.</p>
+    <a href="./app.html" style="margin-top:.5rem;background:var(--ink);color:var(--bg);text-decoration:none;padding:.6rem 1.4rem;border-radius:3px;font-family:'Syne',sans-serif;font-weight:700;font-size:.72rem;">Ir a ResearchLab →</a>
+  </div>
+</div>
+
+<div id="content" style="display:none">
+  <div class="container">
+    <div class="project-hero">
+      <div class="project-eyebrow">Proyecto de investigación compartido</div>
+      <h1 class="project-title" id="proj-title"></h1>
+      <p class="project-desc" id="proj-desc"></p>
+      <div class="project-meta">
+        <span class="meta-item" id="proj-date"></span>
+        <span class="meta-badge badge-inv" id="proj-inv-count"></span>
+        <span class="meta-badge badge-calc" id="proj-calc-count"></span>
+      </div>
+    </div>
+
+    <div class="section" id="inv-section">
+      <div class="section-title">Investigaciones <span id="inv-count-label"></span></div>
+      <div id="inv-list"></div>
+    </div>
+
+    <div class="section" id="calc-section" style="display:none">
+      <div class="section-title">Calculaciones <span id="calc-count-label"></span></div>
+      <div id="calc-list"></div>
+    </div>
+  </div>
+
+  <div class="share-footer">
+    <p>Proyecto compartido en modo solo lectura · <strong>ResearchLab</strong></p>
+    <a href="./app.html" style="background:var(--ink);color:var(--bg);text-decoration:none;padding:.45rem 1rem;border-radius:3px;font-family:'Syne',sans-serif;font-weight:700;font-size:.68rem;transition:background .15s;">Crear mi propio proyecto →</a>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://lkvkplvmilhequqswxsp.supabase.co';
+const PROXY = `${SUPABASE_URL}/functions/v1/public-project`;
+
+function parseMarkdown(text) {
+  let h = text;
+  h = h.replace(/\|(.+)\|\n\|[-| :]+\|\n((?:\|.+\|\n?)+)/g, (_, hd, rows) => {
+    const ths = hd.split('|').filter(Boolean).map(c=>`<th>${c.trim()}</th>`).join('');
+    const trs = rows.trim().split('\n').map(r=>{
+      const tds = r.split('|').filter(Boolean).map(c=>`<td>${c.trim()}</td>`).join('');
+      return `<tr>${tds}</tr>`;
+    }).join('');
+    return `<table><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table>`;
+  });
+  h = h.replace(/\[CHART:([^\|]+)\|([^\]]+)\]/g, (_,title,data)=>{
+    const pairs = data.split(',').map(p=>{ const [l,v]=p.split(':'); return {l:l?.trim(),v:parseFloat(v)||0}; });
+    const mx = Math.max(...pairs.map(p=>p.v));
+    const COLORS=['#c94f2c','#2563c4','#1a9e5c','#d4820f','#8b2cc9'];
+    const rows = pairs.map((p,i)=>`<div class="chart-row"><span class="chart-lbl">${p.l}</span><div class="chart-bar-wrap"><div class="chart-bar" style="width:${mx?p.v/mx*100:0}%;background:${COLORS[i%COLORS.length]}"></div></div><span class="chart-val">${p.v.toLocaleString('es')}</span></div>`).join('');
+    return `<div style="margin:.8rem 0"><div style="font-family:Syne,sans-serif;font-weight:700;font-size:.75rem;color:var(--accent);margin-bottom:.4rem">${title}</div><div class="inline-chart">${rows}</div></div>`;
+  });
+  h = h.replace(/^## (.+)$/gm,'<h3>$1</h3>');
+  h = h.replace(/^### (.+)$/gm,'<h4 style="font-family:Syne,sans-serif;font-size:.75rem;font-weight:700;margin:.5rem 0 .2rem;color:var(--blue)">$1</h4>');
+  h = h.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+  h = h.replace(/`([^`]+)`/g,'<code>$1</code>');
+  h = h.replace(/^[-•*] (.+)$/gm,'<li>$1</li>');
+  h = h.replace(/(<li>[\s\S]*?<\/li>\n?)+/g,m=>`<ul>${m}</ul>`);
+  h = h.split('\n\n').map(b=>b.startsWith('<')?b:`<p>${b.replace(/\n/g,'<br>')}</p>`).join('');
+  return h;
+}
+
+function fmt(d) { return new Date(d).toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'}); }
+
+function pillClass(type) {
+  return {cross:'pill-cross',projection:'pill-projection',correlation:'pill-correlation',formula:'pill-formula'}[type]||'pill-cross';
+}
+
+function renderInvestigation(inv, idx) {
+  const msgs = inv.messages || [];
+  const aiMsgs = msgs.filter(m=>m.role==='assistant');
+  const userMsgs = msgs.filter(m=>m.role==='user');
+  const id = `inv-${idx}`;
+  return `
+    <div class="inv-card">
+      <div class="inv-card-header" onclick="toggleCard('${id}')">
+        <div>
+          <div class="inv-card-topic">${inv.topic}</div>
+          <div class="inv-card-meta">${fmt(inv.created_at)} · ${userMsgs.length} preguntas · ${aiMsgs.length} respuestas</div>
+        </div>
+        <span class="inv-toggle" id="toggle-${id}">▾</span>
+      </div>
+      <div class="inv-card-body" id="body-${id}" style="display:none">
+        ${msgs.map(m=>`
+          <div class="msg ${m.role}">
+            <span class="msg-lbl">${m.role==='user'?'Investigador':'ResearchLab IA'}</span>
+            ${m.role==='user'
+              ? `<div class="msg-bubble">${m.content.replace(/</g,'&lt;')}</div>`
+              : `<div class="msg-bubble">${parseMarkdown(m.content)}</div>`
+            }
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function renderCalculation(calc, idx) {
+  const id = `calc-${idx}`;
+  const typeLabel = {cross:'Cruce de datos',projection:'Proyección',correlation:'Correlación',formula:'Fórmula'}[calc.type]||calc.type;
+  return `
+    <div class="calc-card">
+      <div class="calc-card-header" onclick="toggleCard('${id}')">
+        <span class="calc-type-pill ${pillClass(calc.type)}">${typeLabel}</span>
+        <span class="calc-title">${calc.title}</span>
+        <span style="font-size:.6rem;color:var(--muted);flex-shrink:0">${fmt(calc.created_at)}</span>
+        <span class="inv-toggle" id="toggle-${id}">▾</span>
+      </div>
+      <div class="calc-body" id="body-${id}" style="display:none">
+        <div style="font-size:.62rem;color:var(--muted);margin-bottom:.8rem;padding-bottom:.6rem;border-bottom:1px solid var(--rule)">
+          <strong>Prompt:</strong> ${calc.prompt}
+        </div>
+        ${parseMarkdown(calc.result||'')}
+      </div>
+    </div>
+  `;
+}
+
+function toggleCard(id) {
+  const body = document.getElementById('body-'+id);
+  const toggle = document.getElementById('toggle-'+id);
+  const isOpen = body.style.display !== 'none';
+  body.style.display = isOpen ? 'none' : 'block';
+  toggle.classList.toggle('open', !isOpen);
+}
+
+async function loadProject() {
+  const params = new URLSearchParams(window.location.search);
+  const slug = params.get('s');
+  if (!slug) { showError(); return; }
+
+  try {
+    const res = await fetch(`${PROXY}?slug=${encodeURIComponent(slug)}`);
+    const data = await res.json();
+    if (data.error || !data.id) { showError(); return; }
+    renderProject(data);
+  } catch(e) { showError(); }
+}
+
+function showError() {
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('error').style.display = 'block';
+}
+
+function renderProject(data) {
+  document.title = `${data.name} — ResearchLab`;
+  document.getElementById('proj-title').textContent = data.name;
+  document.getElementById('proj-desc').textContent = data.description || '';
+  document.getElementById('proj-date').textContent = `Creado el ${fmt(data.created_at)}`;
+  document.getElementById('proj-inv-count').textContent = `${data.investigations.length} investigaciones`;
+  document.getElementById('proj-calc-count').textContent = `${data.calculations.length} calculaciones`;
+
+  // Investigations
+  if (data.investigations.length > 0) {
+    document.getElementById('inv-count-label').textContent = `(${data.investigations.length})`;
+    document.getElementById('inv-list').innerHTML = data.investigations.map((inv,i)=>renderInvestigation(inv,i)).join('');
+    // Auto-open first investigation
+    setTimeout(()=>toggleCard('inv-0'), 300);
+  } else {
+    document.getElementById('inv-section').innerHTML = '';
+  }
+
+  // Calculations
+  if (data.calculations.length > 0) {
+    document.getElementById('calc-section').style.display = 'block';
+    document.getElementById('calc-count-label').textContent = `(${data.calculations.length})`;
+    document.getElementById('calc-list').innerHTML = data.calculations.map((c,i)=>renderCalculation(c,i)).join('');
+  }
+
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('content').style.display = 'block';
+}
+
+loadProject();
+</script>
+</body>
+</html>
