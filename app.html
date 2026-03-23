@@ -506,7 +506,7 @@ function AuthPage({ onDemoMode }) {
   async function handleOAuth(provider) {
     if (!isConfigured) { onDemoMode(); return; }
     const { error } = await supabase.auth.signInWithOAuth({
-      provider, options:{ redirectTo: 'https://siraxelloid1460.github.io/ResearchLab/' }
+      provider, options:{ redirectTo: 'https://siraxelloid1460.github.io/ResearchLab/app.html' }
     });
     if (error) setError(error.message);
   }
