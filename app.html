@@ -1392,7 +1392,7 @@ function ConfirmDeleteModal({ project, onClose, onConfirm }) {
 }
 
 // ── DASHBOARD ──────────────────────────────────────────────────────────────────
-function Dashboard({ user, projects, onNewProject, onSelectProject, onEditProject, onDeleteProject }) {
+function Dashboard({ user, profile, projects, onNewProject, onSelectProject, onEditProject, onDeleteProject }) {
   const [editingProject, setEditingProject] = useState(null);
   const [deletingProject, setDeletingProject] = useState(null);
 
@@ -1790,7 +1790,7 @@ function App() {
           userId={user?.id}
         />
       ) : (
-        <Dashboard user={user} projects={projects} onNewProject={()=>setShowNewProject(true)} onSelectProject={p=>setActiveProject(p)} onEditProject={editProject} onDeleteProject={deleteProject} onSignOut={signOut}/>
+        <Dashboard user={user} profile={profile} projects={projects} onNewProject={()=>setShowNewProject(true)} onSelectProject={p=>setActiveProject(p)} onEditProject={editProject} onDeleteProject={deleteProject} onSignOut={signOut}/>
       )}
       {showNewProject&&<NewProjectModal onClose={()=>setShowNewProject(false)} onCreate={createProject}/>}
     </div>
