@@ -18,8 +18,9 @@ nav{background:var(--paper);border-bottom:2px solid var(--ink);padding:.8rem 2re
 .nav-link{font-size:.65rem;color:var(--muted);text-decoration:none;letter-spacing:.05em;transition:color .15s;}
 .nav-link:hover{color:var(--ink);}
 .nav-link.active{color:var(--ink);border-bottom:1.5px solid var(--ink);}
-.nav-cta{background:var(--ink);color:var(--bg);text-decoration:none;padding:.45rem 1rem;border-radius:3px;font-family:'Syne',sans-serif;font-weight:700;font-size:.68rem;transition:background .15s;}
-.nav-cta:hover{background:var(--accent);}
+.nav-cta{background:var(--ink);color:var(--bg);text-decoration:none;padding:.48rem 1.1rem;border-radius:3px;font-family:'Syne',sans-serif;font-weight:700;font-size:.68rem;transition:all .15s;border:1.5px solid var(--ink);}
+.nav-cta:hover{background:var(--accent);border-color:var(--accent);}
+.nav-sep{width:1px;height:16px;background:var(--rule);}
 
 .layout{max-width:1100px;margin:0 auto;padding:2.5rem 2rem;display:grid;grid-template-columns:1fr 280px;gap:2rem;align-items:start;}
 
@@ -113,8 +114,9 @@ nav{background:var(--paper);border-bottom:2px solid var(--ink);padding:.8rem 2re
   <a href="./index.html" class="logo">Research<span>Lab</span></a>
   <div class="nav-links">
     <a href="./index.html" class="nav-link">Inicio</a>
-    <a href="#" class="nav-link active">Foro</a>
-    <a href="./app.html" class="nav-cta">Abrir app →</a>
+    <div class="nav-sep"></div>
+    <a href="#" class="nav-link active" style="color:var(--ink);border-bottom:1.5px solid var(--ink)">Foro</a>
+    <a href="./app.html" class="nav-cta">Mi cuenta →</a>
   </div>
 </nav>
 

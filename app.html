@@ -1648,7 +1648,7 @@ function App() {
           if(event === 'SIGNED_OUT') {
             window.history.replaceState(null, '', window.location.pathname);
             setUser(null); setProjects([]); setActiveProject(null);
-            setShowNewProject(false); setDemoMode(false); setDataLoading(false);
+            setShowNewProject(false); setDemoMode(false); setDataLoading(false); setProfile(null);
           } else if(event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') {
             if(window.location.hash) window.history.replaceState(null, '', window.location.pathname);
             setUser(s?.user || null);
@@ -1764,7 +1764,7 @@ function App() {
       <header className="header">
         <div className="logo">Research<span>Lab</span></div>
         <div className="header-right">
-          <a href="./forum.html" style={{fontSize:'.65rem',color:'var(--muted)',textDecoration:'none',letterSpacing:'.05em',transition:'color .15s'}} onMouseOver={e=>e.target.style.color='var(--ink)'} onMouseOut={e=>e.target.style.color='var(--muted)'}>Foro</a>
+          <a href="./forum.html" style={{fontSize:'.65rem',color:'var(--muted)',textDecoration:'none',letterSpacing:'.05em',transition:'color .15s',padding:'.2rem 0',borderBottom:'1.5px solid transparent'}} onMouseOver={e=>{e.currentTarget.style.color='var(--ink)';e.currentTarget.style.borderBottomColor='var(--ink)'}} onMouseOut={e=>{e.currentTarget.style.color='var(--muted)';e.currentTarget.style.borderBottomColor='transparent'}}>Foro</a>
           {demoMode&&<span style={{fontSize:'.58rem',background:'rgba(212,130,15,.1)',color:'var(--amber)',border:'1px solid rgba(212,130,15,.25)',padding:'.2rem .5rem',borderRadius:2,letterSpacing:'.08em'}}>DEMO</span>}
           {activeProject&&<button className="btn btn-ghost" onClick={()=>setActiveProject(null)}>← Proyectos</button>}
           <UserMenu user={user} profile={profile} onSignOut={signOut}/>
