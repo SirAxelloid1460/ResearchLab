@@ -374,7 +374,1252 @@ if (isConfigured && window.__createSupabaseClient) {
   console.log('✓ Supabase ready (sync)');
 }
 
-// Fallback: if module script hasn't finished yet, wait for the event\nconst supabasePromise = new Promise(resolve => {\n  if (supabase) { resolve(); return; }\n  document.addEventListener('supabase-ready', () => {\n    if (isConfigured && window.__createSupabaseClient) {\n      supabase = window.__createSupabaseClient(SUPABASE_URL, SUPABASE_ANON_KEY);\n      console.log('✓ Supabase ready (async event)');\n    }\n    resolve();\n  }, { once: true });\n});\n\n// ── DEMO DATA (used when Supabase not configured) ────────────────────────────\nconst DEMO_PROJECTS = [\n  {\n    id: 'demo-1', name: 'Demografía Global', description: 'Análisis de distribución de edad y jubilación por países',\n    created_at: new Date(Date.now()-86400000*3).toISOString(),\n    investigations: [\n      { id:'i1', topic:'Distribución por edad en países de la OCDE', summary:'Comparativa de grupos etarios: niños, laborales y jubilados. Japón lidera con 29.5% de mayores de 65 años.', messages:[{role:'user',content:'¿Cómo se distribuye la edad en países OCDE?'},{role:'assistant',content:'## Distribución por edad en la OCDE\n\nLa OCDE muestra una **tendencia clara de envejecimiento**. Aquí el ranking de países con más jubilados:\n\n| País | Menores 15 | Laborales 15-64 | Mayores 65+ |\n|------|-----------|-----------------|-------------|\n| Japón | 12.1% | 58.4% | **29.5%** |\n| Alemania | 13.8% | 62.5% | **23.7%** |\n| Italia | 11.9% | 64.5% | **23.6%** |\n| Grecia | 13.8% | 62.6% | **23.6%** |\n| España | 13.0% | 66.1% | **20.9%** |\n\n## 💡 Conclusiones clave\n\n- Japón tiene la mayor presión sobre sistemas de pensiones\n- Italia y Grecia combinan baja natalidad + alto envejecimiento\n- España aún tiene un colchón laboral mayor, pero declinante'}], created_at: new Date(Date.now()-86400000*2).toISOString() },\n      { id:'i2', topic:'Sistemas de jubilación en Europa', summary:'Comparativa de edad de jubilación, sostenibilidad y reformas recientes en distintos países europeos.', messages:[{role:'user',content:'Analiza los sistemas de jubilación en Europa'},{role:'assistant',content:'## Sistemas de jubilación en Europa\n\nEuropa enfrenta **grandes presiones** en sus sistemas de pensiones.\n\n| País | Edad jubilación | Tipo sistema | Estado |\n|------|----------------|--------------|--------|\n| Alemania | 67 | Reparto | Reforma 2023 |\n| Francia | 64 | Mixto | Reforma 2023 |\n| España | 65-67 | Reparto | Riesgo medio |\n| Italia | 67 | Reparto | Alto déficit |\n| Países Bajos | 67 | Capitalización | Sostenible |\n\n## 💡 Conclusiones clave\n\n- Los sistemas de **reparto** (paga activos a jubilados) son vulnerables al envejecimiento\n- Países Bajos y Dinamarca tienen modelos más sostenibles\n- La tendencia es retrasar la edad de jubilación en toda Europa'}], created_at: new Date(Date.now()-86400000).toISOString() }\n    ],\n    calculations: [\n      { id:'c1', title:'Ratio de dependencia por país', type:'correlation', prompt:'Cruza datos de jubilados vs población laboral y calcula el ratio de dependencia', result:'## Ratio de dependencia = (Niños + Mayores) / Laborales × 100\n\n| País | Ratio dependencia | Clasificación |\n|------|------------------|---------------|\n| Japón | **71.2%** | Crítico |\n| Italia | 54.9% | Alto |\n| Alemania | 60.0% | Alto |\n| España | 51.4% | Medio |\n| Países Bajos | 56.1% | Medio |\n\n## 💡 Proyección 2040\n\nSi las tendencias actuales continúan:\n- **Japón** superará el **85%** de ratio\n- **España** alcanzará el **65%**\n- El umbral crítico económico se considera en **70%**', created_at: new Date().toISOString() }\n    ]\n  },\n  {\n    id:'demo-2', name:'Economía Climática', description:'Impacto económico del cambio climático y transición energética',\n    created_at: new Date(Date.now()-86400000*7).toISOString(),\n    investigations:[], calculations:[]\n  }\n];\n\n// ── HELPERS ──────────────────────────────────────────────────────────────────\nfunction parseMarkdown(text) {\n  let h = text;\n  h = h.replace(/\|(.+)\|\n\|[-| :]+\|\n((?:\|.+\|\n?)+)/g, (_, hd, rows) => {\n    const ths = hd.split('|').filter(Boolean).map(c=>`<th>${c.trim()}</th>`).join('');\n    const trs = rows.trim().split('\n').map(r=>{\n      const tds = r.split('|').filter(Boolean).map(c=>`<td>${c.trim()}</td>`).join('');\n      return `<tr>${tds}</tr>`;\n    }).join('');\n    return `<table><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table>`;\n  });\n  h = h.replace(/\[CHART:([^\|]+)\|([^\]]+)\]/g, (_,title,data)=>{\n    const pairs = data.split(',').map(p=>{ const [l,v]=p.split(':'); return {l:l?.trim(),v:parseFloat(v)||0}; });\n    const mx = Math.max(...pairs.map(p=>p.v));\n    const COLORS=['#c94f2c','#2563c4','#1a9e5c','#d4820f','#8b2cc9'];\n    const rows = pairs.map((p,i)=>`<div class="chart-row"><span class="chart-lbl">${p.l}</span><div class="chart-bar-wrap"><div class="chart-bar" style="width:${mx?p.v/mx*100:0}%;background:${COLORS[i%COLORS.length]}"></div></div><span class="chart-val">${p.v.toLocaleString('es')}</span></div>`).join('');\n    return `<div style="margin:.8rem 0"><div style="font-family:Syne,sans-serif;font-weight:700;font-size:.75rem;color:var(--accent);margin-bottom:.4rem">${title}</div><div class="inline-chart">${rows}</div></div>`;\n  });\n  h = h.replace(/^## (.+)$/gm,'<h3>$1</h3>');\n  h = h.replace(/^### (.+)$/gm,'<h4 style="font-family:Syne,sans-serif;font-size:.75rem;font-weight:700;margin:.6rem 0 .2rem;color:var(--blue)">$1</h4>');\n  h = h.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');\n  h = h.replace(/`([^`]+)`/g,'<code>$1</code>');\n  h = h.replace(/^[-•*] (.+)$/gm,'<li>$1</li>');\n  h = h.replace(/(<li>[\s\S]*?<\/li>\n?)+/g,m=>`<ul>${m}</ul>`);\n  h = h.split('\n\n').map(b=>b.startsWith('<')?b:`<p>${b.replace(/\n/g,'<br>')}</p>`).join('');\n  return h;\n}\n\nfunction fmt(dateStr) {\n  return new Date(dateStr).toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'});\n}\n\n// ── CLAUDE API CALL (via Supabase Edge Function proxy) ───────────────────────\nconst PROXY_URL = 'https://lkvkplvmilhequqswxsp.supabase.co/functions/v1/claude-proxy';\n\nasync function callClaude(messages, systemPrompt) {\n  const res = await fetch(PROXY_URL, {\n    method: 'POST',\n    headers: { 'Content-Type': 'application/json' },\n    body: JSON.stringify({\n      model: 'claude-sonnet-4-20250514',\n      max_tokens: 1000,\n      system: systemPrompt,\n\n      messages\n    })\n  });\n  if (!res.ok) {\n    const err = await res.json().catch(()=>({}));\n    throw new Error(err.error || `HTTP ${res.status}`);\n  }\n  const data = await res.json();\n  const text = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');\n  return text || 'No se obtuvo respuesta.';\n}\n\n// ── SETUP NOTICE ─────────────────────────────────────────────────────────────\nfunction SetupNotice() {\n  return (\n    <div className="setup-notice">\n      <strong>⚙ Configuración requerida</strong>\n      <p style={{marginTop:'.4rem',lineHeight:1.6}}>Esta app necesita dos servicios externos para funcionar completamente:</p>\n      <ul>\n        <li><strong>Supabase</strong> (auth + base de datos): Crea proyecto gratis en <code>supabase.com</code>, copia la URL y Anon Key, y reemplaza <code>YOUR_SUPABASE_URL</code> y <code>YOUR_SUPABASE_ANON_KEY</code> en el código. También ejecuta el SQL de la tabla de abajo.</li>\n        <li><strong>Claude API</strong>: Disponible automáticamente dentro de claude.ai.</li>\n      </ul>\n      <p style={{marginTop:'.5rem'}}>Por ahora estás viendo la <strong>demo con datos de ejemplo</strong>. Puedes explorar la interfaz completa.</p>\n    </div>\n  );\n}\n\n// ── AUTH ──────────────────────────────────────────────────────────────────────\nfunction AuthPage({ onDemoMode }) {\n  const [mode, setMode] = useState('login');\n  const [email, setEmail] = useState('');\n  const [password, setPassword] = useState('');\n  const [loading, setLoading] = useState(false);\n  const [error, setError] = useState('');\n  const [success, setSuccess] = useState('');\n\n  async function handleSubmit(e) {\n    e.preventDefault();\n    if (!isConfigured) { onDemoMode(); return; }\n    setLoading(true); setError(''); setSuccess('');\n    try {\n      if (mode === 'login') {\n        const { error } = await supabase.auth.signInWithPassword({ email, password });\n        if (error) throw error;\n      } else {\n        const { error } = await supabase.auth.signUp({ email, password });\n        if (error) throw error;\n        setSuccess('Revisa tu email para confirmar la cuenta.');\n      }\n    } catch(err) { setError(err.message); }\n    setLoading(false);\n  }\n\n  async function handleOAuth(provider) {\n    if (!isConfigured) { onDemoMode(); return; }\n    const { error } = await supabase.auth.signInWithOAuth({\n      provider, options:{ redirectTo: 'https://siraxelloid1460.github.io/ResearchLab/' }\n    });\n    if (error) setError(error.message);\n  }\n\n  const PROVIDERS = [\n    { id:'google', label:'Google', icon:<svg viewBox="0 0 24 24" fill="none"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg> },\n    { id:'github', label:'GitHub', icon:<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg> },\n    { id:'twitter', label:'X / Twitter', icon:<svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg> },\n    { id:'discord', label:'Discord', icon:<svg viewBox="0 0 24 24" fill="#5865F2"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057c.002.022.015.04.03.048a19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/></svg> },\n  ];\n\n  return (\n    <div className="auth-page">\n      <div className="auth-card">\n        {!isConfigured && (\n          <div style={{background:'rgba(212,130,15,.08)',border:'1px solid rgba(212,130,15,.3)',borderRadius:4,padding:'.6rem .8rem',marginBottom:'1rem',fontSize:'.65rem',color:'var(--amber)'}}>\n            ⚙ Supabase no configurado · <button onClick={onDemoMode} style={{background:'none',border:'none',color:'var(--accent)',cursor:'pointer',fontFamily:'inherit',fontSize:'inherit',textDecoration:'underline'}}>Entrar en modo demo</button>\n          </div>\n        )}\n        <div className="auth-title">Research<span>Lab</span></div>\n        <div className="auth-sub">{mode==='login'?'Accede a tu espacio de investigación':'Crea tu cuenta gratuita'}</div>\n        {error && <div className="error-msg">{error}</div>}\n        {success && <div className="success-msg">{success}</div>}\n        <div className="oauth-grid">\n          {PROVIDERS.map(p=>(\n            <button key={p.id} className="oauth-btn" onClick={()=>handleOAuth(p.id)}>\n              {p.icon}{p.label}\n            </button>\n          ))}\n        </div>\n        <div className="divider">o con email</div>\n        <form onSubmit={handleSubmit}>\n          <div className="field">\n            <label>Email</label>\n            <input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="tu@email.com" required/>\n          </div>\n          <div className="field">\n            <label>Contraseña</label>\n            <input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="••••••••" required minLength={6}/>\n          </div>\n          <button type="submit" className="btn btn-primary" style={{width:'100%',padding:'.7rem'}} disabled={loading}>\n            {loading?<span style={{display:'flex',alignItems:'center',justifyContent:'center',gap:'.5rem'}}><span className="spinner"/>{mode==='login'?'Entrando…':'Creando cuenta…'}</span>:mode==='login'?'Iniciar sesión':'Crear cuenta'}\n          </button>\n        </form>\n        <div className="auth-toggle">\n          {mode==='login'?<>¿Sin cuenta? <button onClick={()=>setMode('register')}>Regístrate gratis</button></>:<>¿Ya tienes cuenta? <button onClick={()=>setMode('login')}>Inicia sesión</button></>}\n        </div>\n      </div>\n    </div>\n  );\n}\n\n// ── NEW PROJECT MODAL ─────────────────────────────────────────────────────────\nfunction NewProjectModal({ onClose, onCreate }) {\n  const [name, setName] = useState('');\n  const [desc, setDesc] = useState('');\n  return (\n    <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>\n      <div className="modal">\n        <div className="modal-title">Nuevo proyecto</div>\n        <div className="modal-sub">Los proyectos agrupan investigaciones relacionadas</div>\n        <div className="field"><label>Nombre del proyecto</label><input value={name} onChange={e=>setName(e.target.value)} placeholder="Ej: Demografía europea 2025" autoFocus/></div>\n        <div className="field"><label>Descripción (opcional)</label><input value={desc} onChange={e=>setDesc(e.target.value)} placeholder="Qué vas a investigar en este proyecto…"/></div>\n        <div className="modal-actions">\n          <button className="btn btn-ghost" onClick={onClose}>Cancelar</button>\n          <button className="btn btn-primary" onClick={()=>name.trim()&&onCreate(name.trim(),desc.trim())} disabled={!name.trim()}>Crear proyecto</button>\n        </div>\n      </div>\n    </div>\n  );\n}\n\n// ── EXPORT FUNCTIONS ─────────────────────────────────────────────────────────\nfunction messagesToMarkdown(topic, messages) {\n  const lines = [];\n  lines.push(`# ${topic}`);\n  lines.push('');\n  lines.push(`> Exportado desde ResearchLab · ${new Date().toLocaleDateString('es-ES', {day:'numeric',month:'long',year:'numeric'})}`);\n  lines.push('');\n  lines.push('---');\n  lines.push('');\n  messages.forEach((m, i) => {\n    if (m.role === 'user') {\n      lines.push(`## 🔍 Pregunta ${Math.floor(i/2)+1}`);\n      lines.push('');\n      lines.push(m.content);\n      lines.push('');\n    } else {\n      lines.push('### 🤖 Respuesta ResearchLab IA');\n      lines.push('');\n      // Strip [CHART:...] tags for markdown\n      const clean = m.content.replace(/\[CHART:[^\]]+\]/g, '*(gráfico omitido en exportación)*');\n      lines.push(clean);\n      lines.push('');\n      lines.push('---');\n      lines.push('');\n    }\n  });\n  return lines.join('\n');\n}\n\nfunction downloadMarkdown(topic, messages) {\n  const md = messagesToMarkdown(topic, messages);\n  const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });\n  const url = URL.createObjectURL(blob);\n  const a = document.createElement('a');\n  a.href = url;\n  a.download = `${topic.slice(0,40).replace(/[^a-z0-9]/gi,'_')}.md`;\n  a.click();\n  URL.revokeObjectURL(url);\n}\n\nfunction downloadPDF(topic, messages) {\n  // Build a clean HTML document to print as PDF\n  const aiMessages = messages.filter(m => m.role === 'assistant');\n  const userMessages = messages.filter(m => m.role === 'user');\n\n  let body = '';\n  messages.forEach((m, i) => {\n    if (m.role === 'user') {\n      body += `<div class="q-block"><div class="q-label">Pregunta</div><div class="q-text">${m.content.replace(/</g,'&lt;')}</div></div>`;\n    } else {\n      // Basic markdown conversion for PDF\n      let html = m.content;\n      html = html.replace(/\[CHART:[^\]]+\]/g, '<em style="color:#8c877e">[Gráfico no disponible en PDF]</em>');\n      html = html.replace(/^## (.+)$/gm, '<h3>$1</h3>');\n      html = html.replace(/^### (.+)$/gm, '<h4>$1</h4>');\n      html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');\n      html = html.replace(/`([^`]+)`/g, '<code>$1</code>');\n      html = html.replace(/\|(.+)\|\n\|[-| :]+\|\n((?:\|.+\|\n?)+)/g, (_, hd, rows) => {\n        const ths = hd.split('|').filter(Boolean).map(c=>`<th>${c.trim()}</th>`).join('');\n        const trs = rows.trim().split('\n').map(r => {\n          const tds = r.split('|').filter(Boolean).map(c=>`<td>${c.trim()}</td>`).join('');\n          return `<tr>${tds}</tr>`;\n        }).join('');\n        return `<table><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table>`;\n      });\n      html = html.split('\n\n').map(b => b.startsWith('<') ? b : `<p>${b.replace(/\n/g,'<br>')}</p>`).join('');\n      body += `<div class="a-block">${html}</div>`;\n    }\n  });\n\n  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">\n  <style>\n    body { font-family: Georgia, serif; font-size: 12px; line-height: 1.7; color: #1c1814; max-width: 720px; margin: 0 auto; padding: 40px 30px; }\n    .header { border-bottom: 2px solid #1c1814; padding-bottom: 16px; margin-bottom: 24px; }\n    .header h1 { font-size: 22px; letter-spacing: -.02em; margin-bottom: 4px; }\n    .header .meta { font-size: 10px; color: #8c877e; font-family: monospace; }\n    .q-block { margin: 20px 0 8px; }\n    .q-label { font-size: 9px; letter-spacing: .15em; text-transform: uppercase; color: #8c877e; font-family: monospace; margin-bottom: 4px; }\n    .q-text { background: #1c1814; color: #f4f0e6; padding: 10px 14px; border-radius: 4px; font-size: 11px; }\n    .a-block { background: #faf7f1; border: 1px solid #d8d3c8; border-radius: 4px; padding: 14px 16px; margin-bottom: 16px; }\n    .a-block h3 { font-size: 13px; color: #c94f2c; border-bottom: 1px solid #d8d3c8; padding-bottom: 4px; margin: 12px 0 6px; }\n    .a-block h3:first-child { margin-top: 0; }\n    .a-block h4 { font-size: 11px; color: #2563c4; margin: 8px 0 4px; }\n    .a-block p { margin-bottom: 6px; }\n    .a-block strong { color: #c94f2c; }\n    .a-block code { background: #f4f0e6; padding: 1px 4px; border-radius: 2px; font-size: 10px; font-family: monospace; }\n    .a-block ul { padding-left: 18px; margin: 4px 0; }\n    .a-block li { margin-bottom: 3px; }\n    table { width: 100%; border-collapse: collapse; font-size: 10px; margin: 8px 0; }\n    th { background: #1c1814; color: #f4f0e6; padding: 5px 8px; text-align: left; font-family: monospace; font-size: 9px; letter-spacing: .08em; text-transform: uppercase; }\n    td { padding: 4px 8px; border-bottom: 1px solid #d8d3c8; }\n    tr:nth-child(even) td { background: #f4f0e6; }\n    .footer { margin-top: 32px; padding-top: 12px; border-top: 1px solid #d8d3c8; font-size: 9px; color: #8c877e; font-family: monospace; }\n  </style></head><body>\n  <div class="header">\n    <h1>${topic}</h1>\n    <div class="meta">ResearchLab · ${new Date().toLocaleDateString('es-ES',{day:'numeric',month:'long',year:'numeric'})} · ${messages.length} mensajes</div>\n  </div>\n  ${body}\n  <div class="footer">Exportado desde ResearchLab — researchlab.app</div>\n  </body></html>`;\n\n  const win = window.open('', '_blank');\n  win.document.write(html);\n  win.document.close();\n  setTimeout(() => { win.print(); }, 500);\n}\n\n// ── EXPORT MENU COMPONENT ────────────────────────────────────────────────────\nfunction ExportMenu({ topic, messages }) {\n  const [open, setOpen] = useState(false);\n  const ref = useRef(null);\n\n  useEffect(()=>{\n    function handleClick(e) { if(ref.current && !ref.current.contains(e.target)) setOpen(false); }\n    document.addEventListener('mousedown', handleClick);\n    return ()=>document.removeEventListener('mousedown', handleClick);\n  },[]);\n\n  if(!messages || messages.length === 0) return null;\n\n  return (\n    <div className="export-menu" ref={ref}>\n      <button className="back-btn" onClick={()=>setOpen(o=>!o)} title="Exportar investigación">\n        ↓ Exportar\n      </button>\n      {open&&(\n        <div className="export-dropdown">\n          <button className="export-item" onClick={()=>{ downloadMarkdown(topic, messages); setOpen(false); }}>\n            <span className="export-icon">#</span> Markdown (.md)\n          </button>\n          <button className="export-item" onClick={()=>{ downloadPDF(topic, messages); setOpen(false); }}>\n            <span className="export-icon">📄</span> PDF (imprimir)\n          </button>\n        </div>\n      )}\n    </div>\n  );\n}\n\n// ── INVESTIGATION CHAT ────────────────────────────────────────────────────────\nfunction InvestigationChat({ inv, onBack, onUpdate, userId }) {\n  const [messages, setMessages] = useState(inv.messages || []);\n  const [input, setInput] = useState('');\n  const [loading, setLoading] = useState(false);\n  const [tab, setTab] = useState('chat'); // 'chat' | 'history'\n  const [versions, setVersions] = useState([]);\n  const [versionsLoading, setVersionsLoading] = useState(false);\n  const [versionCount, setVersionCount] = useState(0);\n  const [expandedVersion, setExpandedVersion] = useState(null);\n  const [restoring, setRestoring] = useState(false);\n  const messagesRef = useRef(null);\n  const taRef = useRef(null);\n\n  useEffect(()=>{ if(messagesRef.current) messagesRef.current.scrollTop=messagesRef.current.scrollHeight; },[messages,loading]);\n\n  // Auto-send first question if unanswered\n  useEffect(()=>{\n    const msgs = inv.messages || [];\n    const lastMsg = msgs[msgs.length - 1];\n    if(msgs.length > 0 && lastMsg?.role === 'user') callAI(msgs);\n  }, []);\n\n  function loadHistory() {\n    if(!isConfigured||!userId) return;\n    setVersionsLoading(true);\n    dbLoadVersions(inv.id)\n      .then(vs=>{ setVersions(vs); setVersionsLoading(false); })\n      .catch(e=>{ console.error(e); setVersionsLoading(false); });\n  }\n\n  function handleTabChange(t) {\n    setTab(t);\n    if(t==='history' && versions.length===0) loadHistory();\n  }\n\n  function resize(el) { el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,150)+'px'; }\n\n  function buildSystem() {\n    return `Eres ResearchLab, un asistente de investigación científica y análisis de datos.\nRespondes SIEMPRE en español. Eres preciso, citas fuentes (Banco Mundial, ONU, FMI, NASA, etc.).\nUsa formato Markdown: ## para secciones, **negrita** para datos clave, tablas para comparativas.\nAl final incluye "## 💡 Conclusiones clave" con los hallazgos más importantes.\nPara gráficos usa: [CHART:titulo|etiqueta:valor,etiqueta:valor]\nLa investigación actual es sobre: "${inv.topic}"`;\n  }\n\n  async function callAI(currentMsgs) {\n    setLoading(true);\n    try {\n      const reply = await callClaude(currentMsgs, buildSystem());\n      const finalMsgs = [...currentMsgs, {role:'assistant',content:reply}];\n      setMessages(finalMsgs);\n      const summary = reply.slice(0,120)+'…';\n      onUpdate(inv.id, finalMsgs, summary);\n      // Save version snapshot\n      if(isConfigured && userId) {\n        const triggerMsg = currentMsgs.filter(m=>m.role==='user').pop()?.content || '';\n        const newCount = versionCount + 1;\n        setVersionCount(newCount);\n        dbSaveVersion(userId, inv.id, finalMsgs, summary, triggerMsg, newCount);\n        // Refresh history if open\n        if(tab==='history') loadHistory();\n      }\n    } catch(e) {\n      const err = [...currentMsgs,{role:'assistant',content:`❌ Error: ${e.message}`}];\n      setMessages(err);\n    }\n    setLoading(false);\n  }\n\n  async function send() {\n    if(!input.trim()||loading) return;\n    const userMsg = {role:'user',content:input.trim()};\n    const newMsgs = [...messages, userMsg];\n    setMessages(newMsgs); setInput('');\n    if(taRef.current) taRef.current.style.height='42px';\n    await callAI(newMsgs);\n  }\n\n  async function restoreVersion(v) {\n    if(!confirm(`¿Restaurar a la versión ${v.version_num}? Se reemplazará el estado actual.`)) return;\n    setRestoring(true);\n    setMessages(v.messages);\n    onUpdate(inv.id, v.messages, v.summary);\n    setTab('chat');\n    setRestoring(false);\n  }\n\n  return (\n    <div className="inv-chat">\n      <div className="inv-chat-header">\n        <button className="back-btn" onClick={onBack}>← Volver</button>\n        <div className="inv-chat-title">{inv.topic}</div>\n        <div style={{display:'flex',gap:'.4rem',marginLeft:'auto',alignItems:'center'}}>\n          <button className={`back-btn${tab==='chat'?' active':''}`}\n            style={tab==='chat'?{borderColor:'var(--ink)',color:'var(--ink)'}:{}}\n            onClick={()=>handleTabChange('chat')}>Chat</button>\n          <button className={`back-btn${tab==='history'?' active':''}`}\n            style={tab==='history'?{borderColor:'var(--ink)',color:'var(--ink)'}:{}}\n            onClick={()=>handleTabChange('history')}>\n            Historial {versions.length>0&&`(${versions.length})`}\n          </button>\n          <ExportMenu topic={inv.topic} messages={messages}/>\n        </div>\n      </div>\n\n      {tab==='chat' && <>\n        <div className="messages" ref={messagesRef}>\n          {messages.map((m,i)=>(\n            <div key={i} className={`msg ${m.role==='user'?'user':'ai'}`}>\n              <span className="msg-lbl">{m.role==='user'?'Tú':'ResearchLab IA'}</span>\n              {m.role==='user'\n                ? <div className="msg-bubble">{m.content}</div>\n                : <div className="msg-bubble" dangerouslySetInnerHTML={{__html:parseMarkdown(m.content)}}/>\n              }\n            </div>\n          ))}\n          {loading&&(\n            <div className="msg ai">\n              <span className="msg-lbl">ResearchLab IA</span>\n              <div className="thinking"><div className="dots"><div className="dot"/><div className="dot"/><div className="dot"/></div>Investigando…</div>\n            </div>\n          )}\n        </div>\n        <div className="chat-input-area">\n          <div className="chat-input-row">\n            <textarea ref={taRef} value={input} onChange={e=>{setInput(e.target.value);resize(e.target);}} onKeyDown={e=>{ if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();} }} placeholder="Pregunta algo o pide un análisis más profundo…" rows={1}/>\n            <button className="btn btn-primary" onClick={send} disabled={loading||!input.trim()}>{loading?<span className="spinner"/>:'↑ Enviar'}</button>\n          </div>\n        </div>\n      </>}\n\n      {tab==='history' && (\n        <div style={{flex:1,overflowY:'auto',paddingRight:'.5rem'}}>\n          {versionsLoading ? (\n            <div style={{textAlign:'center',padding:'2rem',color:'var(--muted)',fontSize:'.7rem'}}>\n              <div style={{display:'flex',justifyContent:'center',gap:'4px',marginBottom:'.5rem'}}><div className="dot"/><div className="dot"/><div className="dot"/></div>\n              Cargando historial…\n            </div>\n          ) : versions.length===0 ? (\n            <div className="version-empty">\n              <div style={{fontSize:'1.5rem',marginBottom:'.5rem',opacity:.3}}>⏱</div>\n              <p>Aún no hay versiones guardadas.</p>\n              <p style={{marginTop:'.3rem',fontSize:'.62rem'}}>Las versiones se crean automáticamente después de cada respuesta de la IA.</p>\n            </div>\n          ) : (\n            <div className="version-panel">\n              {versions.map((v, idx)=>(\n                <div key={v.id} className="version-item" onClick={()=>setExpandedVersion(expandedVersion===v.id?null:v.id)}>\n                  <div className="version-timeline">\n                    <div className={`version-dot${idx===0?' current':''}`}/>\n                    {idx<versions.length-1&&<div className="version-line"/>}\n                  </div>\n                  <div className="version-body">\n                    <div className="version-num">Versión {v.version_num}</div>\n                    <div className="version-trigger">{v.trigger_msg?.slice(0,80)||'Mensaje inicial'}{v.trigger_msg?.length>80?'…':''}</div>\n                    <div className="version-meta">\n                      <span>{fmt(v.created_at)}</span>\n                      <span>·</span>\n                      <span>{v.messages?.length||0} mensajes</span>\n                      {idx===0&&<span className="version-badge current-badge">actual</span>}\n                    </div>\n                    {expandedVersion===v.id&&(\n                      <div className="version-preview">\n                        {v.summary||'Sin resumen disponible'}\n                      </div>\n                    )}\n                    {idx>0&&(\n                      <button className="version-restore-btn" style={{marginTop:'.5rem'}}\n                        onClick={e=>{e.stopPropagation();restoreVersion(v);}}>\n                        ↩ Restaurar esta versión\n                      </button>\n                    )}\n                  </div>\n                </div>\n              ))}\n            </div>\n          )}\n        </div>\n      )}\n    </div>\n  );\n}\n\n// ── NEW INVESTIGATION MODAL ───────────────────────────────────────────────────\nfunction NewInvestigationModal({ onClose, onCreate }) {\n  const [topic, setTopic] = useState('');\n  const [firstQ, setFirstQ] = useState('');\n  return (\n    <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>\n      <div className="modal">\n        <div className="modal-title">Nueva investigación</div>\n        <div className="modal-sub">Define el tema que quieres explorar en esta sesión</div>\n        <div className="field"><label>Tema de investigación</label><input value={topic} onChange={e=>setTopic(e.target.value)} placeholder="Ej: Esperanza de vida vs gasto sanitario" autoFocus/></div>\n        <div className="field"><label>Primera pregunta (opcional)</label><input value={firstQ} onChange={e=>setFirstQ(e.target.value)} placeholder="Ej: ¿Qué países tienen mayor gasto sanitario?"/></div>\n        <div className="modal-actions">\n          <button className="btn btn-ghost" onClick={onClose}>Cancelar</button>\n          <button className="btn btn-primary" onClick={()=>topic.trim()&&onCreate(topic.trim(),firstQ.trim())} disabled={!topic.trim()}>Comenzar investigación</button>\n        </div>\n      </div>\n    </div>\n  );\n}\n\n// ── CALCULATIONS TAB ──────────────────────────────────────────────────────────\nfunction CalculationsTab({ project, onSaveCalc }) {\n  const [selectedSources, setSelectedSources] = useState([]);\n  const [calcType, setCalcType] = useState('cross');\n  const [prompt, setPrompt] = useState('');\n  const [loading, setLoading] = useState(false);\n  const [result, setResult] = useState(null);\n  const [saved, setSaved] = useState(project.calculations || []);\n  const [viewCalc, setViewCalc] = useState(null);\n\n  const TYPES = [\n    {id:'cross', label:'Cruzar datos'},\n    {id:'projection', label:'Proyección'},\n    {id:'correlation', label:'Correlación'},\n    {id:'formula', label:'Fórmula propia'},\n  ];\n\n  function toggleSource(id) {\n    setSelectedSources(s=>s.includes(id)?s.filter(x=>x!==id):[...s,id]);\n  }\n\n  async function runCalc() {\n    if(!prompt.trim()) return;\n    setLoading(true); setResult(null);\n    const sources = project.investigations.filter(i=>selectedSources.includes(i.id));\n    const dataContext = sources.map(s=>{\n      const lastAI = [...s.messages].reverse().find(m=>m.role==='assistant');\n      return `### Investigación: "${s.topic}"\nResumen: ${s.summary||'(sin resumen)'}\nÚltimos datos:\n${lastAI?.content?.slice(0,800)||'Sin datos aún'}`;\n    }).join('\n\n---\n\n');\n    const typeLabels = {cross:'cruce de datos entre fuentes',projection:'proyección de tendencias',correlation:'análisis de correlación estadística',formula:'cálculo con fórmula personalizada'};\n    const system = `Eres ResearchLab, motor de cálculo y análisis. SIEMPRE respondes en español.\nUsa Markdown avanzado: ## secciones, tablas, **negrita**, [CHART:titulo|etiqueta:valor,...] para gráficos.\nRealiza un ${typeLabels[calcType]} riguroso y cita metodología.\nAl final siempre incluye "## 💡 Conclusiones clave" y "## ⚠ Limitaciones" brevemente.\n${dataContext ? `\n\n## Datos disponibles de las investigaciones seleccionadas:\n${dataContext}` : ''}`;\n    try {\n      const reply = await callClaude([{role:'user',content:prompt}], system);\n      setResult(reply);\n    } catch(e) { setResult(`❌ Error: ${e.message}`); }\n    setLoading(false);\n  }\n\n  async function saveCalc() {\n    if(!result) return;\n    const calc = await onSaveCalc(\n      prompt.slice(0,60), calcType, prompt, result, selectedSources\n    );\n    if(calc) {\n      setSaved(s=>[calc,...s]);\n      setResult(null); setPrompt(''); setSelectedSources([]);\n    }\n  }\n\n  if(viewCalc) return (\n    <div>\n      <div style={{display:'flex',alignItems:'center',gap:'.8rem',marginBottom:'1.2rem'}}>\n        <button className="back-btn" onClick={()=>setViewCalc(null)}>← Volver</button>\n        <span style={{fontFamily:'Syne,sans-serif',fontWeight:700,fontSize:'.95rem',flex:1}}>{viewCalc.title}</span>\n        <span className="tag tag-calc">{viewCalc.type}</span>\n      </div>\n      <div className="calc-result">\n        <div className="calc-result-header"><div className="dot-green"/>{new Date(viewCalc.created_at).toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'})}</div>\n        <div className="calc-result-body" dangerouslySetInnerHTML={{__html:parseMarkdown(viewCalc.result)}}/>\n      </div>\n    </div>\n  );\n\n  return (\n    <div>\n      {saved.length>0&&(\n        <div style={{marginBottom:'1.5rem'}}>\n          <div style={{fontSize:'.58rem',letterSpacing:'.15em',textTransform:'uppercase',color:'var(--muted)',marginBottom:'.6rem'}}>Calculaciones guardadas</div>\n          <div className="inv-list">\n            {saved.map(c=>(\n              <div key={c.id} className="inv-item" onClick={()=>setViewCalc(c)}>\n                <div className="inv-status status-done"/>\n                <div className="inv-item-main">\n                  <div className="inv-topic">{c.title}</div>\n                  <div className="inv-preview" style={{display:'flex',gap:'.5rem',marginTop:'.3rem',alignItems:'center'}}>\n                    <span className="tag tag-calc">{c.type}</span>\n                    <span>{fmt(c.created_at)}</span>\n                  </div>\n                </div>\n              </div>\n            ))}\n          </div>\n        </div>\n      )}\n      <div className="calc-layout">\n        <div>\n          <div style={{fontSize:'.58rem',letterSpacing:'.15em',textTransform:'uppercase',color:'var(--muted)',marginBottom:'.6rem'}}>Nueva calculación</div>\n          <div className="calc-panel">\n            <div className="calc-panel-header">\n              <div className="calc-panel-title">Motor de Análisis IA</div>\n              <div className="calc-panel-sub">Interrelaciona datos de tus investigaciones</div>\n            </div>\n            <div className="calc-panel-body">\n              <div style={{fontSize:'.58rem',letterSpacing:'.12em',textTransform:'uppercase',color:'var(--muted)',marginBottom:'.4rem'}}>Tipo de análisis</div>\n              <div className="calc-type-grid">\n                {TYPES.map(t=><button key={t.id} className={`calc-type-btn${calcType===t.id?' active':''}`} onClick={()=>setCalcType(t.id)}>{t.label}</button>)}\n              </div>\n              <div style={{fontSize:'.58rem',letterSpacing:'.12em',textTransform:'uppercase',color:'var(--muted)',margin:'.8rem 0 .4rem'}}>Qué quieres calcular o analizar</div>\n              <textarea className="calc-textarea" value={prompt} onChange={e=>setPrompt(e.target.value)} placeholder={\n                calcType==='cross'?'Ej: Cruza los datos de esperanza de vida con el PIB per cápita y encuentra patrones…':\n                calcType==='projection'?'Ej: Proyecta la tasa de envejecimiento de España para 2030 y 2040 basándote en las tendencias actuales…':\n                calcType==='correlation'?'Ej: ¿Existe correlación entre el gasto sanitario y la longevidad? Calcula el coeficiente de correlación…':\n                'Ej: Calcula el ratio de dependencia demográfica usando la fórmula (menores+mayores)/laborales×100…'\n              }/>\n              <button className="btn btn-primary" style={{width:'100%',marginTop:'.7rem',padding:'.65rem'}} onClick={runCalc} disabled={loading||!prompt.trim()}>\n                {loading?<span style={{display:'flex',alignItems:'center',justifyContent:'center',gap:'.5rem'}}><span className="spinner"/>Calculando…</span>:'⚡ Ejecutar análisis'}\n              </button>\n            </div>\n          </div>\n          {result&&(\n            <div className="calc-result" style={{marginTop:'1rem'}}>\n              <div className="calc-result-header"><div className="dot-green"/>Resultado listo</div>\n              <div className="calc-result-body" dangerouslySetInnerHTML={{__html:parseMarkdown(result)}}/>\n              <div style={{padding:'.8rem 1rem',borderTop:'1px solid var(--rule)',display:'flex',gap:'.5rem',justifyContent:'flex-end'}}>\n                <button className="btn btn-ghost" onClick={()=>setResult(null)}>Descartar</button>\n                <button className="btn btn-primary" onClick={saveCalc}>Guardar calculación</button>\n              </div>\n            </div>\n          )}\n        </div>\n        <div>\n          <div style={{fontSize:'.58rem',letterSpacing:'.12em',textTransform:'uppercase',color:'var(--muted)',marginBottom:'.6rem'}}>Fuentes de datos ({project.investigations.length})</div>\n          {project.investigations.length===0?(\n            <div style={{background:'var(--bg)',border:'1px dashed var(--rule)',borderRadius:4,padding:'1.5rem',textAlign:'center',fontSize:'.68rem',color:'var(--muted)'}}>\n              Añade investigaciones al proyecto para poder cruzar sus datos aquí\n            </div>\n          ):(\n            <div className="data-source-list">\n              {project.investigations.map(inv=>(\n                <div key={inv.id} className={`data-source-item${selectedSources.includes(inv.id)?' selected':''}`} onClick={()=>toggleSource(inv.id)}>\n                  <div className="ds-check">{selectedSources.includes(inv.id)&&'✓'}</div>\n                  <div style={{flex:1}}>\n                    <div className="ds-name">{inv.topic}</div>\n                    <div className="ds-preview">{inv.messages?.length||0} mensajes · {fmt(inv.created_at)}</div>\n                  </div>\n                </div>\n              ))}\n            </div>\n          )}\n          {selectedSources.length>0&&<div style={{marginTop:'.6rem',fontSize:'.6rem',color:'var(--green)'}}>✓ {selectedSources.length} fuente{selectedSources.length>1?'s':''} seleccionada{selectedSources.length>1?'s':''}</div>}\n        </div>\n      </div>\n    </div>\n  );\n}\n\n// ── SUPABASE DATA LAYER ───────────────────────────────────────────────────────\nasync function dbLoadProjects(userId) {\n  const { data: projects, error } = await supabase\n    .from('projects').select('*').eq('user_id', userId).order('created_at', { ascending: false });\n  if (error) throw error;\n  const full = await Promise.all(projects.map(async p => {\n    const [{ data: investigations }, { data: calculations }] = await Promise.all([\n      supabase.from('investigations').select('*').eq('project_id', p.id).order('created_at', { ascending: false }),\n      supabase.from('calculations').select('*').eq('project_id', p.id).order('created_at', { ascending: false }),\n    ]);\n    return { ...p, investigations: investigations||[], calculations: calculations||[] };\n  }));\n  return full;\n}\nasync function dbCreateProject(userId, name, description) {\n  const { data, error } = await supabase.from('projects')\n    .insert({ user_id: userId, name, description }).select().single();\n  if (error) throw error;\n  return { ...data, investigations:[], calculations:[] };\n}\nasync function dbCreateInvestigation(userId, projectId, topic, messages) {\n  const { data, error } = await supabase.from('investigations')\n    .insert({ user_id: userId, project_id: projectId, topic, messages, summary:'Nueva investigación' }).select().single();\n  if (error) throw error;\n  return data;\n}\nasync function dbUpdateInvestigation(invId, messages, summary) {\n  const { error } = await supabase.from('investigations')\n    .update({ messages, summary }).eq('id', invId);\n  if (error) throw error;\n}\nasync function dbUpdateProjectFields(projectId, name, description) {\n  const { error } = await supabase.from('projects')\n    .update({ name, description }).eq('id', projectId);\n  if (error) throw error;\n}\nasync function dbDeleteProject(projectId) {\n  const { error } = await supabase.from('projects')\n    .delete().eq('id', projectId);\n  if (error) throw error;\n}\nasync function dbCreateCalculation(userId, projectId, title, type, prompt, result, sources) {\n  const { data, error } = await supabase.from('calculations')\n    .insert({ user_id: userId, project_id: projectId, title, type, prompt, result, sources }).select().single();\n  if (error) throw error;\n  return data;\n}\n\n// ── SHARING DB ───────────────────────────────────────────────────────────────\nfunction generateSlug() {\n  return Math.random().toString(36).slice(2,8) + Math.random().toString(36).slice(2,8);\n}\nasync function dbToggleShare(projectId, enable) {\n  if (enable) {\n    const slug = generateSlug();\n    const { data, error } = await supabase.from('projects')\n      .update({ is_public: true, public_slug: slug })\n      .eq('id', projectId).select('public_slug').single();\n    if (error) throw error;\n    return data.public_slug;\n  } else {\n    const { error } = await supabase.from('projects')\n      .update({ is_public: false, public_slug: null })\n      .eq('id', projectId);\n    if (error) throw error;\n    return null;\n  }\n}\n\n// ── VERSIONS DB ──────────────────────────────────────────────────────────────\nasync function dbSaveVersion(userId, invId, messages, summary, triggerMsg, versionNum) {\n  const { error } = await supabase.from('investigation_versions').insert({\n    investigation_id: invId,\n    user_id: userId,\n    messages,\n    summary,\n    trigger_msg: triggerMsg,\n    version_num: versionNum,\n  });\n  if (error) console.error('Version save error:', error);\n}\nasync function dbLoadVersions(invId) {\n  const { data, error } = await supabase\n    .from('investigation_versions')\n    .select('*')\n    .eq('investigation_id', invId)\n    .order('version_num', { ascending: false });\n  if (error) throw error;\n  return data || [];\n}\n\n// ── PROFILE DB ───────────────────────────────────────────────────────────────\nasync function dbLoadProfile(userId) {\n  const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).single();\n  if (error && error.code !== 'PGRST116') throw error;\n  return data;\n}\nasync function dbUpsertProfile(userId, fields) {\n  const { error } = await supabase.from('profiles').upsert({ id: userId, ...fields });\n  if (error) throw error;\n}\nasync function dbUploadAvatar(userId, file) {\n  const ext = file.name.split('.').pop();\n  const path = `${userId}/avatar.${ext}`;\n  const { error } = await supabase.storage.from('avatars').upload(path, file, { upsert: true });\n  if (error) throw error;\n  const { data } = supabase.storage.from('avatars').getPublicUrl(path);\n  return data.publicUrl + '?t=' + Date.now();\n}\n\n// ── SHARE MODAL ──────────────────────────────────────────────────────────────\nfunction ShareModal({ project, onClose, onUpdate }) {\n  const [isPublic, setIsPublic] = useState(project.is_public || false);\n  const [slug, setSlug] = useState(project.public_slug || '');\n  const [loading, setLoading] = useState(false);\n  const [copied, setCopied] = useState(false);\n\n  const shareUrl = slug\n    ? `https://siraxelloid1460.github.io/ResearchLab/share.html?s=${slug}`\n    : '';\n\n  async function toggle(val) {\n    setLoading(true);\n    try {\n      const newSlug = await dbToggleShare(project.id, val);\n      setIsPublic(val);\n      setSlug(newSlug || '');\n      onUpdate({ ...project, is_public: val, public_slug: newSlug });\n    } catch(e) { alert('Error: '+e.message); }\n    setLoading(false);\n  }\n\n  function copyLink() {\n    navigator.clipboard.writeText(shareUrl);\n    setCopied(true);\n    setTimeout(()=>setCopied(false), 2000);\n  }\n\n  return (\n    <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>\n      <div className="modal">\n        <div className="modal-title">Compartir proyecto</div>\n        <div className="modal-sub">Genera un link público de solo lectura para "{project.name}"</div>\n\n        <div className="share-toggle">\n          <div className="share-toggle-label">\n            Acceso público\n            <small>{isPublic ? 'Cualquiera con el link puede ver este proyecto' : 'Solo tú puedes ver este proyecto'}</small>\n          </div>\n          <label className="toggle-switch">\n            <input type="checkbox" checked={isPublic} disabled={loading}\n              onChange={e=>toggle(e.target.checked)}/>\n            <span className="toggle-slider"></span>\n          </label>\n        </div>\n\n        {isPublic && slug && (\n          <>\n            <div style={{fontSize:'.62rem',color:'var(--muted)',marginBottom:'.4rem'}}>Link público</div>\n            <div className="share-link-box">\n              <input className="share-link-input" value={shareUrl} readOnly onClick={e=>e.target.select()}/>\n              <button className={`copy-btn${copied?' copied':''}`} onClick={copyLink}>\n                {copied ? '✓ Copiado' : 'Copiar'}\n              </button>\n            </div>\n            <div style={{fontSize:'.6rem',color:'var(--muted)',lineHeight:1.6}}>\n              Las investigaciones y calculaciones son visibles. Los datos personales no se comparten.\n            </div>\n          </>\n        )}\n\n        <div className="modal-actions">\n          <button className="btn btn-ghost" onClick={onClose}>Cerrar</button>\n          {isPublic && slug && (\n            <a href={shareUrl} target="_blank" rel="noopener noreferrer" className="btn btn-primary"\n              style={{textDecoration:'none'}}>Ver como público →</a>\n          )}\n        </div>\n      </div>\n    </div>\n  );\n}\n\n// ── PROJECT PAGE ──────────────────────────────────────────────────────────────\nfunction ProjectPage({ project, onBack, onUpdate, onCreateInv, onUpdateInv, onCreateCalc, userId }) {\n  const [tab, setTab] = useState('investigations');\n  const [showNewInv, setShowNewInv] = useState(false);\n  const [showShare, setShowShare] = useState(false);\n  const [activeInv, setActiveInv] = useState(null);\n  const [proj, setProj] = useState(project);\n  const [saving, setSaving] = useState(false);\n\n  async function createInvestigation(topic, firstQ) {\n    setSaving(true);\n    const msgs = firstQ ? [{role:'user',content:firstQ}] : [];\n    try {\n      const inv = await onCreateInv(proj.id, topic, msgs);\n      const updated = { ...proj, investigations:[inv,...(proj.investigations||[])] };\n      setProj(updated); onUpdate(updated);\n      setShowNewInv(false);\n      setActiveInv(inv);\n      setTab('investigations');\n    } catch(e) { alert('Error al crear investigación: '+e.message); }\n    setSaving(false);\n  }\n\n  async function updateInvestigation(id, messages, summary) {\n    const invs = proj.investigations.map(i=>i.id===id?{...i,messages,summary}:i);\n    const updated = {...proj, investigations:invs};\n    setProj(updated); onUpdate(updated);\n    try { await onUpdateInv(id, messages, summary); } catch(e) { console.error(e); }\n  }\n\n  async function saveCalculation(title, type, prompt, result, sources) {\n    try {\n      const calc = await onCreateCalc(proj.id, title, type, prompt, result, sources);\n      const updated = {...proj, calculations:[calc,...(proj.calculations||[])]};\n      setProj(updated); onUpdate(updated);\n      return calc;\n    } catch(e) { alert('Error al guardar: '+e.message); }\n  }\n\n  const invs = proj.investigations||[];\n\n  return (\n    <div className="project-page">\n      <div className="project-header">\n        <div className="project-title-area">\n          <div className="breadcrumb"><button onClick={onBack}>Proyectos</button><span>›</span><span>{proj.name}</span></div>\n          <div className="project-page-title">{proj.name}</div>\n          {proj.description&&<div className="project-desc">{proj.description}</div>}\n        </div>\n        <div style={{display:'flex',gap:'.5rem'}}>\n          <button className="btn btn-ghost" onClick={()=>setShowShare(true)} title="Compartir proyecto">\n            ↗ Compartir\n          </button>\n          {tab==='investigations'&&<button className="btn btn-primary" onClick={()=>setShowNewInv(true)}>+ Nueva investigación</button>}\n        </div>\n      </div>\n      <div className="tabs">\n        <button className={`tab${tab==='investigations'?' active':''}`} onClick={()=>{setTab('investigations');setActiveInv(null);}}>\n          Investigaciones ({invs.length})\n        </button>\n        <button className={`tab${tab==='calculations'?' active':''}`} onClick={()=>setTab('calculations')}>\n          Calculaciones ({(proj.calculations||[]).length})\n        </button>\n      </div>\n      <div className="tab-content">\n        {tab==='investigations'&&(\n          activeInv\n            ? <InvestigationChat inv={activeInv} onBack={()=>setActiveInv(null)} onUpdate={updateInvestigation} userId={userId}/>\n            : <>\n                {invs.length===0\n                  ? <div className="empty-state"><div className="big">🔬</div><p>Aún no hay investigaciones en este proyecto</p><button className="btn btn-primary" onClick={()=>setShowNewInv(true)}>+ Añadir primera investigación</button></div>\n                  : <div className="inv-list">\n                      {invs.map(inv=>(\n                        <div key={inv.id} className="inv-item" onClick={()=>setActiveInv(inv)}>\n                          <div className={`inv-status ${inv.messages?.length>1?'status-done':'status-wip'}`}/>\n                          <div className="inv-item-main">\n                            <div className="inv-topic">{inv.topic}</div>\n                            <div className="inv-preview">{inv.summary||'Sin resumen aún'}</div>\n                          </div>\n                          <div className="inv-date">{fmt(inv.created_at)}</div>\n                        </div>\n                      ))}\n                    </div>\n                }\n              </>\n        )}\n        {tab==='calculations'&&<CalculationsTab project={proj} onSaveCalc={saveCalculation}/>}\n      </div>\n      {showNewInv&&<NewInvestigationModal onClose={()=>setShowNewInv(false)} onCreate={createInvestigation} saving={saving}/>}\n      {showShare&&<ShareModal project={proj} onClose={()=>setShowShare(false)} onUpdate={p=>{setProj(p);onUpdate(p);}}/>}\n    </div>\n  );\n}\n\n// ── EDIT PROJECT MODAL ───────────────────────────────────────────────────────\nfunction EditProjectModal({ project, onClose, onSave }) {\n  const [name, setName] = useState(project.name);\n  const [desc, setDesc] = useState(project.description||'');\n  return (\n    <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>\n      <div className="modal">\n        <div className="modal-title">Editar proyecto</div>\n        <div className="modal-sub">Cambia el nombre o la descripción</div>\n        <div className="field"><label>Nombre</label><input value={name} onChange={e=>setName(e.target.value)} autoFocus/></div>\n        <div className="field"><label>Descripción</label><input value={desc} onChange={e=>setDesc(e.target.value)} placeholder="Descripción opcional…"/></div>\n        <div className="modal-actions">\n          <button className="btn btn-ghost" onClick={onClose}>Cancelar</button>\n          <button className="btn btn-primary" onClick={()=>name.trim()&&onSave(name.trim(),desc.trim())} disabled={!name.trim()}>Guardar cambios</button>\n        </div>\n      </div>\n    </div>\n  );\n}\n\n// ── CONFIRM DELETE MODAL ──────────────────────────────────────────────────────\nfunction ConfirmDeleteModal({ project, onClose, onConfirm }) {\n  return (\n    <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>\n      <div className="modal">\n        <div className="modal-title">Eliminar proyecto</div>\n        <div className="modal-sub" style={{color:'var(--accent)'}}>Esta acción no se puede deshacer</div>\n        <p style={{fontSize:'.73rem',lineHeight:1.6,margin:'.5rem 0 0'}}>\n          ¿Seguro que quieres eliminar <strong>"{project.name}"</strong>?\n          Se borrarán también todas sus investigaciones y calculaciones.\n        </p>\n        <div className="modal-actions">\n          <button className="btn btn-ghost" onClick={onClose}>Cancelar</button>\n          <button className="btn btn-danger" onClick={onConfirm} style={{background:'var(--accent)',color:'white',borderColor:'var(--accent)'}}>Sí, eliminar</button>\n        </div>\n      </div>\n    </div>\n  );\n}\n\n// ── DASHBOARD ──────────────────────────────────────────────────────────────────\nfunction Dashboard({ user, projects, onNewProject, onSelectProject, onEditProject, onDeleteProject }) {\n  const [editingProject, setEditingProject] = useState(null);\n  const [deletingProject, setDeletingProject] = useState(null);\n\n  return (\n    <div className="dashboard">\n      {!isConfigured&&<SetupNotice/>}\n      <div className="page-header">\n        <div>\n          <div className="page-title">Mis <span>proyectos</span></div>\n          <div style={{fontSize:'.62rem',color:'var(--muted)',marginTop:'.3rem'}}>Hola, {profile?.name||user?.email?.split('@')[0]||'investigador'}</div>\n        </div>\n        <button className="btn btn-primary" onClick={onNewProject}>+ Nuevo proyecto</button>\n      </div>\n      {projects.length===0\n        ? <div className="empty-state"><div className="big">📁</div><p>Crea tu primer proyecto de investigación</p><button className="btn btn-primary" onClick={onNewProject}>+ Crear proyecto</button></div>\n        : <div className="projects-grid">\n            {projects.map(p=>(\n              <div key={p.id} className="project-card" onClick={()=>onSelectProject(p)}>\n                <div className="project-card-header">\n                  <div className="project-name">{p.name}</div>\n                  <div className="project-card-actions" onClick={e=>e.stopPropagation()}>\n                    <button className="card-action-btn" title="Editar" onClick={()=>setEditingProject(p)}>✎</button>\n                    <button className="card-action-btn danger" title="Eliminar" onClick={()=>setDeletingProject(p)}>✕</button>\n                  </div>\n                </div>\n                {p.description&&<div className="project-meta">{p.description}</div>}\n                <div className="project-meta" style={{marginBottom:'.6rem'}}>{fmt(p.created_at)}</div>\n                <div className="project-stats">\n                  <span className="stat-badge stat-inv">{(p.investigations||[]).length} invest.</span>\n                  <span className="stat-badge stat-calc">{(p.calculations||[]).length} calc.</span>\n                </div>\n              </div>\n            ))}\n            <div className="new-project-card" onClick={onNewProject}>\n              <span style={{fontSize:'1.5rem',opacity:.4}}>+</span>\n              <span>Nuevo proyecto</span>\n            </div>\n          </div>\n      }\n      {editingProject&&(\n        <EditProjectModal\n          project={editingProject}\n          onClose={()=>setEditingProject(null)}\n          onSave={(name,desc)=>{ onEditProject(editingProject.id,name,desc); setEditingProject(null); }}\n        />\n      )}\n      {deletingProject&&(\n        <ConfirmDeleteModal\n          project={deletingProject}\n          onClose={()=>setDeletingProject(null)}\n          onConfirm={()=>{ onDeleteProject(deletingProject.id); setDeletingProject(null); }}\n        />\n      )}\n    </div>\n  );\n}\n\n// ── USER MENU ─────────────────────────────────────────────────────────────────\n// ── PROFILE MODAL ────────────────────────────────────────────────────────────\nfunction ProfileModal({ user, onClose }) {\n  const [profile, setProfile] = useState(null);\n  const [name, setName] = useState('');\n  const [bio, setBio] = useState('');\n  const [avatarUrl, setAvatarUrl] = useState('');\n  const [saving, setSaving] = useState(false);\n  const [uploading, setUploading] = useState(false);\n  const [saved, setSaved] = useState(false);\n  const fileRef = useRef(null);\n\n  useEffect(()=>{\n    if(!user||!isConfigured) return;\n    dbLoadProfile(user.id).then(p=>{\n      if(p) {\n        setProfile(p);\n        setName(p.name||'');\n        setBio(p.bio||'');\n        setAvatarUrl(p.avatar_url||'');\n      } else {\n        setName(user.email?.split('@')[0]||'');\n      }\n    }).catch(console.error);\n  },[user]);\n\n  async function handleSave() {\n    setSaving(true); setSaved(false);\n    try {\n      await dbUpsertProfile(user.id, { name, bio, avatar_url: avatarUrl });\n      setSaved(true);\n      setTimeout(()=>setSaved(false), 2500);\n    } catch(e) { alert('Error: '+e.message); }\n    setSaving(false);\n  }\n\n  async function handleAvatarClick() { fileRef.current?.click(); }\n\n  async function handleFileChange(e) {\n    const file = e.target.files?.[0];\n    if(!file) return;\n    if(file.size > 2*1024*1024) { alert('El archivo debe ser menor de 2MB'); return; }\n    setUploading(true);\n    try {\n      const url = await dbUploadAvatar(user.id, file);\n      setAvatarUrl(url);\n      await dbUpsertProfile(user.id, { name, bio, avatar_url: url });\n    } catch(e) { alert('Error al subir imagen: '+e.message); }\n    setUploading(false);\n  }\n\n  const initial = (name?.[0]||user?.email?.[0]||'U').toUpperCase();\n\n  return (\n    <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>\n      <div className="modal profile-modal">\n        <div className="modal-title">Mi perfil</div>\n        <div className="modal-sub">Personaliza cómo apareces en ResearchLab</div>\n\n        <div className="profile-avatar-section">\n          <div className={`profile-avatar-big${avatarUrl?' avatar-has-img':''}`} onClick={handleAvatarClick}>\n            {avatarUrl ? <img src={avatarUrl} alt="avatar"/> : initial}\n            <div className="avatar-overlay">{uploading?'…':'cambiar'}</div>\n          </div>\n          <input ref={fileRef} type="file" accept="image/*" style={{display:'none'}} onChange={handleFileChange}/>\n          <div className="profile-avatar-info">\n            <strong style={{fontFamily:'Syne,sans-serif',fontWeight:700,fontSize:'.85rem'}}>{name||user?.email?.split('@')[0]||'Usuario'}</strong>\n            <p>{user?.email}</p>\n            <p style={{marginTop:'.4rem'}}>Haz clic en el avatar para cambiar la foto. Máx 2MB.</p>\n          </div>\n        </div>\n\n        <div className="field">\n          <label>Nombre</label>\n          <input value={name} onChange={e=>setName(e.target.value)} placeholder="Tu nombre o alias"/>\n        </div>\n        <div className="field">\n          <label>Bio</label>\n          <input value={bio} onChange={e=>setBio(e.target.value)} placeholder="Investigador, analista de datos, curioso…"/>\n        </div>\n\n        <div className="modal-actions">\n          <button className="btn btn-ghost" onClick={onClose}>Cerrar</button>\n          <div className="profile-save-row">\n            {saved&&<span className="profile-saved">✓ Guardado</span>}\n            <button className="btn btn-primary" onClick={handleSave} disabled={saving}>\n              {saving?<span style={{display:'flex',alignItems:'center',gap:'.4rem'}}><span className="spinner"/>Guardando…</span>:'Guardar cambios'}\n            </button>\n          </div>\n        </div>\n      </div>\n    </div>\n  );\n}\n\n// ── USER MENU ─────────────────────────────────────────────────────────────────\nfunction UserMenu({ user, profile, onSignOut }) {\n  const [open, setOpen] = useState(false);\n  const [showProfile, setShowProfile] = useState(false);\n  const ref = useRef(null);\n\n  useEffect(()=>{\n    function handleClick(e) { if(ref.current && !ref.current.contains(e.target)) setOpen(false); }\n    document.addEventListener('mousedown', handleClick);\n    return ()=>document.removeEventListener('mousedown', handleClick);\n  },[]);\n\n  const displayName = profile?.name || user?.email?.split('@')[0] || 'Usuario';\n  const initial = (displayName?.[0]||'U').toUpperCase();\n  const avatarUrl = profile?.avatar_url;\n\n  return (\n    <>\n      <div className="user-menu-wrap" ref={ref}>\n        <div className={`avatar${avatarUrl?' avatar-has-img':''}`}\n          onClick={()=>setOpen(o=>!o)}\n          style={{cursor:'pointer', background: avatarUrl?'transparent':undefined, padding:0, overflow:'hidden'}}\n          title="Menú de usuario">\n          {avatarUrl\n            ? <img src={avatarUrl} alt={displayName} style={{width:'100%',height:'100%',objectFit:'cover',borderRadius:'50%'}}/>\n            : initial\n          }\n        </div>\n        {open&&(\n          <div className="user-menu-dropdown">\n            <div className="user-menu-info">\n              <strong>{displayName}</strong>\n              {user?.email&&<span>{user.email}</span>}\n              {profile?.bio&&<span style={{marginTop:'.2rem',display:'block',fontStyle:'italic'}}>{profile.bio}</span>}\n            </div>\n            <button className="user-menu-item" onClick={()=>{ setOpen(false); setShowProfile(true); }}>\n              <span>◎</span> Mi perfil\n            </button>\n            <button className="user-menu-item danger" onClick={()=>{ setOpen(false); onSignOut(); }}>\n              <span>⎋</span> Cerrar sesión\n            </button>\n          </div>\n        )}\n      </div>\n      {showProfile&&<ProfileModal user={user} onClose={()=>setShowProfile(false)}/>}\n    </>\n  );\n}\n\n// ── ROOT APP ──────────────────────────────────────────────────────────────────\nfunction App() {\n  const [user, setUser] = useState(null);\n  const [projects, setProjects] = useState([]);\n  const [activeProject, setActiveProject] = useState(null);\n  const [showNewProject, setShowNewProject] = useState(false);\n  const [demoMode, setDemoMode] = useState(false);\n  const [authLoading, setAuthLoading] = useState(true);\n  const [dataLoading, setDataLoading] = useState(false);\n  const [dbError, setDbError] = useState(null);\n  const [profile, setProfile] = useState(null);\n\n  useEffect(()=>{\n    if(!isConfigured){ setAuthLoading(false); return; }\n    let sub;\n\n    supabasePromise.then(async ()=>{\n      // Fix double-hash bug: GitHub Pages + Supabase OAuth produces ##access_token\n      // Strip extra leading hashes so Supabase can parse the token\n      const rawHash = window.location.hash;\n      if(rawHash.startsWith('##') || rawHash.startsWith('#%23')) {\n        const cleanHash = '#' + rawHash.replace(/^#+/, '');\n        window.history.replaceState(null, '', window.location.pathname + cleanHash);\n      }\n\n      // If there's an access_token in the hash, parse and set the session manually
+// Fallback: if module script hasn't finished yet, wait for the event
+const supabasePromise = new Promise(resolve => {
+  if (supabase) { resolve(); return; }
+  document.addEventListener('supabase-ready', () => {
+    if (isConfigured && window.__createSupabaseClient) {
+      supabase = window.__createSupabaseClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      console.log('✓ Supabase ready (async event)');
+    }
+    resolve();
+  }, { once: true });
+});
+
+// ── DEMO DATA (used when Supabase not configured) ────────────────────────────
+const DEMO_PROJECTS = [
+  {
+    id: 'demo-1', name: 'Demografía Global', description: 'Análisis de distribución de edad y jubilación por países',
+    created_at: new Date(Date.now()-86400000*3).toISOString(),
+    investigations: [
+      { id:'i1', topic:'Distribución por edad en países de la OCDE', summary:'Comparativa de grupos etarios: niños, laborales y jubilados. Japón lidera con 29.5% de mayores de 65 años.', messages:[{role:'user',content:'¿Cómo se distribuye la edad en países OCDE?'},{role:'assistant',content:'## Distribución por edad en la OCDE\n\nLa OCDE muestra una **tendencia clara de envejecimiento**. Aquí el ranking de países con más jubilados:\n\n| País | Menores 15 | Laborales 15-64 | Mayores 65+ |\n|------|-----------|-----------------|-------------|\n| Japón | 12.1% | 58.4% | **29.5%** |\n| Alemania | 13.8% | 62.5% | **23.7%** |\n| Italia | 11.9% | 64.5% | **23.6%** |\n| Grecia | 13.8% | 62.6% | **23.6%** |\n| España | 13.0% | 66.1% | **20.9%** |\n\n## 💡 Conclusiones clave\n\n- Japón tiene la mayor presión sobre sistemas de pensiones\n- Italia y Grecia combinan baja natalidad + alto envejecimiento\n- España aún tiene un colchón laboral mayor, pero declinante'}], created_at: new Date(Date.now()-86400000*2).toISOString() },
+      { id:'i2', topic:'Sistemas de jubilación en Europa', summary:'Comparativa de edad de jubilación, sostenibilidad y reformas recientes en distintos países europeos.', messages:[{role:'user',content:'Analiza los sistemas de jubilación en Europa'},{role:'assistant',content:'## Sistemas de jubilación en Europa\n\nEuropa enfrenta **grandes presiones** en sus sistemas de pensiones.\n\n| País | Edad jubilación | Tipo sistema | Estado |\n|------|----------------|--------------|--------|\n| Alemania | 67 | Reparto | Reforma 2023 |\n| Francia | 64 | Mixto | Reforma 2023 |\n| España | 65-67 | Reparto | Riesgo medio |\n| Italia | 67 | Reparto | Alto déficit |\n| Países Bajos | 67 | Capitalización | Sostenible |\n\n## 💡 Conclusiones clave\n\n- Los sistemas de **reparto** (paga activos a jubilados) son vulnerables al envejecimiento\n- Países Bajos y Dinamarca tienen modelos más sostenibles\n- La tendencia es retrasar la edad de jubilación en toda Europa'}], created_at: new Date(Date.now()-86400000).toISOString() }
+    ],
+    calculations: [
+      { id:'c1', title:'Ratio de dependencia por país', type:'correlation', prompt:'Cruza datos de jubilados vs población laboral y calcula el ratio de dependencia', result:'## Ratio de dependencia = (Niños + Mayores) / Laborales × 100\n\n| País | Ratio dependencia | Clasificación |\n|------|------------------|---------------|\n| Japón | **71.2%** | Crítico |\n| Italia | 54.9% | Alto |\n| Alemania | 60.0% | Alto |\n| España | 51.4% | Medio |\n| Países Bajos | 56.1% | Medio |\n\n## 💡 Proyección 2040\n\nSi las tendencias actuales continúan:\n- **Japón** superará el **85%** de ratio\n- **España** alcanzará el **65%**\n- El umbral crítico económico se considera en **70%**', created_at: new Date().toISOString() }
+    ]
+  },
+  {
+    id:'demo-2', name:'Economía Climática', description:'Impacto económico del cambio climático y transición energética',
+    created_at: new Date(Date.now()-86400000*7).toISOString(),
+    investigations:[], calculations:[]
+  }
+];
+
+// ── HELPERS ──────────────────────────────────────────────────────────────────
+function parseMarkdown(text) {
+  let h = text;
+  h = h.replace(/\|(.+)\|\n\|[-| :]+\|\n((?:\|.+\|\n?)+)/g, (_, hd, rows) => {
+    const ths = hd.split('|').filter(Boolean).map(c=>`<th>${c.trim()}</th>`).join('');
+    const trs = rows.trim().split('\n').map(r=>{
+      const tds = r.split('|').filter(Boolean).map(c=>`<td>${c.trim()}</td>`).join('');
+      return `<tr>${tds}</tr>`;
+    }).join('');
+    return `<table><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table>`;
+  });
+  h = h.replace(/\[CHART:([^\|]+)\|([^\]]+)\]/g, (_,title,data)=>{
+    const pairs = data.split(',').map(p=>{ const [l,v]=p.split(':'); return {l:l?.trim(),v:parseFloat(v)||0}; });
+    const mx = Math.max(...pairs.map(p=>p.v));
+    const COLORS=['#c94f2c','#2563c4','#1a9e5c','#d4820f','#8b2cc9'];
+    const rows = pairs.map((p,i)=>`<div class="chart-row"><span class="chart-lbl">${p.l}</span><div class="chart-bar-wrap"><div class="chart-bar" style="width:${mx?p.v/mx*100:0}%;background:${COLORS[i%COLORS.length]}"></div></div><span class="chart-val">${p.v.toLocaleString('es')}</span></div>`).join('');
+    return `<div style="margin:.8rem 0"><div style="font-family:Syne,sans-serif;font-weight:700;font-size:.75rem;color:var(--accent);margin-bottom:.4rem">${title}</div><div class="inline-chart">${rows}</div></div>`;
+  });
+  h = h.replace(/^## (.+)$/gm,'<h3>$1</h3>');
+  h = h.replace(/^### (.+)$/gm,'<h4 style="font-family:Syne,sans-serif;font-size:.75rem;font-weight:700;margin:.6rem 0 .2rem;color:var(--blue)">$1</h4>');
+  h = h.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+  h = h.replace(/`([^`]+)`/g,'<code>$1</code>');
+  h = h.replace(/^[-•*] (.+)$/gm,'<li>$1</li>');
+  h = h.replace(/(<li>[\s\S]*?<\/li>\n?)+/g,m=>`<ul>${m}</ul>`);
+  h = h.split('\n\n').map(b=>b.startsWith('<')?b:`<p>${b.replace(/\n/g,'<br>')}</p>`).join('');
+  return h;
+}
+
+function fmt(dateStr) {
+  return new Date(dateStr).toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'});
+}
+
+// ── CLAUDE API CALL (via Supabase Edge Function proxy) ───────────────────────
+const PROXY_URL = 'https://lkvkplvmilhequqswxsp.supabase.co/functions/v1/claude-proxy';
+
+async function callClaude(messages, systemPrompt) {
+  const res = await fetch(PROXY_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1000,
+      system: systemPrompt,
+
+      messages
+    })
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(()=>({}));
+    throw new Error(err.error || `HTTP ${res.status}`);
+  }
+  const data = await res.json();
+  const text = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
+  return text || 'No se obtuvo respuesta.';
+}
+
+// ── SETUP NOTICE ─────────────────────────────────────────────────────────────
+function SetupNotice() {
+  return (
+    <div className="setup-notice">
+      <strong>⚙ Configuración requerida</strong>
+      <p style={{marginTop:'.4rem',lineHeight:1.6}}>Esta app necesita dos servicios externos para funcionar completamente:</p>
+      <ul>
+        <li><strong>Supabase</strong> (auth + base de datos): Crea proyecto gratis en <code>supabase.com</code>, copia la URL y Anon Key, y reemplaza <code>YOUR_SUPABASE_URL</code> y <code>YOUR_SUPABASE_ANON_KEY</code> en el código. También ejecuta el SQL de la tabla de abajo.</li>
+        <li><strong>Claude API</strong>: Disponible automáticamente dentro de claude.ai.</li>
+      </ul>
+      <p style={{marginTop:'.5rem'}}>Por ahora estás viendo la <strong>demo con datos de ejemplo</strong>. Puedes explorar la interfaz completa.</p>
+    </div>
+  );
+}
+
+// ── AUTH ──────────────────────────────────────────────────────────────────────
+function AuthPage({ onDemoMode }) {
+  const [mode, setMode] = useState('login');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (!isConfigured) { onDemoMode(); return; }
+    setLoading(true); setError(''); setSuccess('');
+    try {
+      if (mode === 'login') {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.auth.signUp({ email, password });
+        if (error) throw error;
+        setSuccess('Revisa tu email para confirmar la cuenta.');
+      }
+    } catch(err) { setError(err.message); }
+    setLoading(false);
+  }
+
+  async function handleOAuth(provider) {
+    if (!isConfigured) { onDemoMode(); return; }
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider, options:{ redirectTo: 'https://siraxelloid1460.github.io/ResearchLab/' }
+    });
+    if (error) setError(error.message);
+  }
+
+  const PROVIDERS = [
+    { id:'google', label:'Google', icon:<svg viewBox="0 0 24 24" fill="none"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg> },
+    { id:'github', label:'GitHub', icon:<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg> },
+    { id:'twitter', label:'X / Twitter', icon:<svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg> },
+    { id:'discord', label:'Discord', icon:<svg viewBox="0 0 24 24" fill="#5865F2"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057c.002.022.015.04.03.048a19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/></svg> },
+  ];
+
+  return (
+    <div className="auth-page">
+      <div className="auth-card">
+        {!isConfigured && (
+          <div style={{background:'rgba(212,130,15,.08)',border:'1px solid rgba(212,130,15,.3)',borderRadius:4,padding:'.6rem .8rem',marginBottom:'1rem',fontSize:'.65rem',color:'var(--amber)'}}>
+            ⚙ Supabase no configurado · <button onClick={onDemoMode} style={{background:'none',border:'none',color:'var(--accent)',cursor:'pointer',fontFamily:'inherit',fontSize:'inherit',textDecoration:'underline'}}>Entrar en modo demo</button>
+          </div>
+        )}
+        <div className="auth-title">Research<span>Lab</span></div>
+        <div className="auth-sub">{mode==='login'?'Accede a tu espacio de investigación':'Crea tu cuenta gratuita'}</div>
+        {error && <div className="error-msg">{error}</div>}
+        {success && <div className="success-msg">{success}</div>}
+        <div className="oauth-grid">
+          {PROVIDERS.map(p=>(
+            <button key={p.id} className="oauth-btn" onClick={()=>handleOAuth(p.id)}>
+              {p.icon}{p.label}
+            </button>
+          ))}
+        </div>
+        <div className="divider">o con email</div>
+        <form onSubmit={handleSubmit}>
+          <div className="field">
+            <label>Email</label>
+            <input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="tu@email.com" required/>
+          </div>
+          <div className="field">
+            <label>Contraseña</label>
+            <input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="••••••••" required minLength={6}/>
+          </div>
+          <button type="submit" className="btn btn-primary" style={{width:'100%',padding:'.7rem'}} disabled={loading}>
+            {loading?<span style={{display:'flex',alignItems:'center',justifyContent:'center',gap:'.5rem'}}><span className="spinner"/>{mode==='login'?'Entrando…':'Creando cuenta…'}</span>:mode==='login'?'Iniciar sesión':'Crear cuenta'}
+          </button>
+        </form>
+        <div className="auth-toggle">
+          {mode==='login'?<>¿Sin cuenta? <button onClick={()=>setMode('register')}>Regístrate gratis</button></>:<>¿Ya tienes cuenta? <button onClick={()=>setMode('login')}>Inicia sesión</button></>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── NEW PROJECT MODAL ─────────────────────────────────────────────────────────
+function NewProjectModal({ onClose, onCreate }) {
+  const [name, setName] = useState('');
+  const [desc, setDesc] = useState('');
+  return (
+    <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="modal">
+        <div className="modal-title">Nuevo proyecto</div>
+        <div className="modal-sub">Los proyectos agrupan investigaciones relacionadas</div>
+        <div className="field"><label>Nombre del proyecto</label><input value={name} onChange={e=>setName(e.target.value)} placeholder="Ej: Demografía europea 2025" autoFocus/></div>
+        <div className="field"><label>Descripción (opcional)</label><input value={desc} onChange={e=>setDesc(e.target.value)} placeholder="Qué vas a investigar en este proyecto…"/></div>
+        <div className="modal-actions">
+          <button className="btn btn-ghost" onClick={onClose}>Cancelar</button>
+          <button className="btn btn-primary" onClick={()=>name.trim()&&onCreate(name.trim(),desc.trim())} disabled={!name.trim()}>Crear proyecto</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── EXPORT FUNCTIONS ─────────────────────────────────────────────────────────
+function messagesToMarkdown(topic, messages) {
+  const lines = [];
+  lines.push(`# ${topic}`);
+  lines.push('');
+  lines.push(`> Exportado desde ResearchLab · ${new Date().toLocaleDateString('es-ES', {day:'numeric',month:'long',year:'numeric'})}`);
+  lines.push('');
+  lines.push('---');
+  lines.push('');
+  messages.forEach((m, i) => {
+    if (m.role === 'user') {
+      lines.push(`## 🔍 Pregunta ${Math.floor(i/2)+1}`);
+      lines.push('');
+      lines.push(m.content);
+      lines.push('');
+    } else {
+      lines.push('### 🤖 Respuesta ResearchLab IA');
+      lines.push('');
+      // Strip [CHART:...] tags for markdown
+      const clean = m.content.replace(/\[CHART:[^\]]+\]/g, '*(gráfico omitido en exportación)*');
+      lines.push(clean);
+      lines.push('');
+      lines.push('---');
+      lines.push('');
+    }
+  });
+  return lines.join('\n');
+}
+
+function downloadMarkdown(topic, messages) {
+  const md = messagesToMarkdown(topic, messages);
+  const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${topic.slice(0,40).replace(/[^a-z0-9]/gi,'_')}.md`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function downloadPDF(topic, messages) {
+  // Build a clean HTML document to print as PDF
+  const aiMessages = messages.filter(m => m.role === 'assistant');
+  const userMessages = messages.filter(m => m.role === 'user');
+
+  let body = '';
+  messages.forEach((m, i) => {
+    if (m.role === 'user') {
+      body += `<div class="q-block"><div class="q-label">Pregunta</div><div class="q-text">${m.content.replace(/</g,'&lt;')}</div></div>`;
+    } else {
+      // Basic markdown conversion for PDF
+      let html = m.content;
+      html = html.replace(/\[CHART:[^\]]+\]/g, '<em style="color:#8c877e">[Gráfico no disponible en PDF]</em>');
+      html = html.replace(/^## (.+)$/gm, '<h3>$1</h3>');
+      html = html.replace(/^### (.+)$/gm, '<h4>$1</h4>');
+      html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+      html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+      html = html.replace(/\|(.+)\|\|[-| :]+\|((?:\|.+\|?)+)/g, (_, hd, rows) => {
+        const ths = hd.split('|').filter(Boolean).map(c=>`<th>${c.trim()}</th>`).join('');
+        const trs = rows.trim().split('\n').map(r => {
+          const tds = r.split('|').filter(Boolean).map(c=>`<td>${c.trim()}</td>`).join('');
+          return `<tr>${tds}</tr>`;
+        }).join('');
+        return `<table><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table>`;
+      });
+      html = html.split('\n\n').map(b => b.startsWith('<') ? b : `<p>${b.replace(/\n/g,'<br>')}</p>`).join('');
+      body += `<div class="a-block">${html}</div>`;
+    }
+  });
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <style>
+    body { font-family: Georgia, serif; font-size: 12px; line-height: 1.7; color: #1c1814; max-width: 720px; margin: 0 auto; padding: 40px 30px; }
+    .header { border-bottom: 2px solid #1c1814; padding-bottom: 16px; margin-bottom: 24px; }
+    .header h1 { font-size: 22px; letter-spacing: -.02em; margin-bottom: 4px; }
+    .header .meta { font-size: 10px; color: #8c877e; font-family: monospace; }
+    .q-block { margin: 20px 0 8px; }
+    .q-label { font-size: 9px; letter-spacing: .15em; text-transform: uppercase; color: #8c877e; font-family: monospace; margin-bottom: 4px; }
+    .q-text { background: #1c1814; color: #f4f0e6; padding: 10px 14px; border-radius: 4px; font-size: 11px; }
+    .a-block { background: #faf7f1; border: 1px solid #d8d3c8; border-radius: 4px; padding: 14px 16px; margin-bottom: 16px; }
+    .a-block h3 { font-size: 13px; color: #c94f2c; border-bottom: 1px solid #d8d3c8; padding-bottom: 4px; margin: 12px 0 6px; }
+    .a-block h3:first-child { margin-top: 0; }
+    .a-block h4 { font-size: 11px; color: #2563c4; margin: 8px 0 4px; }
+    .a-block p { margin-bottom: 6px; }
+    .a-block strong { color: #c94f2c; }
+    .a-block code { background: #f4f0e6; padding: 1px 4px; border-radius: 2px; font-size: 10px; font-family: monospace; }
+    .a-block ul { padding-left: 18px; margin: 4px 0; }
+    .a-block li { margin-bottom: 3px; }
+    table { width: 100%; border-collapse: collapse; font-size: 10px; margin: 8px 0; }
+    th { background: #1c1814; color: #f4f0e6; padding: 5px 8px; text-align: left; font-family: monospace; font-size: 9px; letter-spacing: .08em; text-transform: uppercase; }
+    td { padding: 4px 8px; border-bottom: 1px solid #d8d3c8; }
+    tr:nth-child(even) td { background: #f4f0e6; }
+    .footer { margin-top: 32px; padding-top: 12px; border-top: 1px solid #d8d3c8; font-size: 9px; color: #8c877e; font-family: monospace; }
+  </style></head><body>
+  <div class="header">
+    <h1>${topic}</h1>
+    <div class="meta">ResearchLab · ${new Date().toLocaleDateString('es-ES',{day:'numeric',month:'long',year:'numeric'})} · ${messages.length} mensajes</div>
+  </div>
+  ${body}
+  <div class="footer">Exportado desde ResearchLab — researchlab.app</div>
+  </body></html>`;
+
+  const win = window.open('', '_blank');
+  win.document.write(html);
+  win.document.close();
+  setTimeout(() => { win.print(); }, 500);
+}
+
+// ── EXPORT MENU COMPONENT ────────────────────────────────────────────────────
+function ExportMenu({ topic, messages }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(()=>{
+    function handleClick(e) { if(ref.current && !ref.current.contains(e.target)) setOpen(false); }
+    document.addEventListener('mousedown', handleClick);
+    return ()=>document.removeEventListener('mousedown', handleClick);
+  },[]);
+
+  if(!messages || messages.length === 0) return null;
+
+  return (
+    <div className="export-menu" ref={ref}>
+      <button className="back-btn" onClick={()=>setOpen(o=>!o)} title="Exportar investigación">
+        ↓ Exportar
+      </button>
+      {open&&(
+        <div className="export-dropdown">
+          <button className="export-item" onClick={()=>{ downloadMarkdown(topic, messages); setOpen(false); }}>
+            <span className="export-icon">#</span> Markdown (.md)
+          </button>
+          <button className="export-item" onClick={()=>{ downloadPDF(topic, messages); setOpen(false); }}>
+            <span className="export-icon">📄</span> PDF (imprimir)
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── INVESTIGATION CHAT ────────────────────────────────────────────────────────
+function InvestigationChat({ inv, onBack, onUpdate, userId }) {
+  const [messages, setMessages] = useState(inv.messages || []);
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [tab, setTab] = useState('chat'); // 'chat' | 'history'
+  const [versions, setVersions] = useState([]);
+  const [versionsLoading, setVersionsLoading] = useState(false);
+  const [versionCount, setVersionCount] = useState(0);
+  const [expandedVersion, setExpandedVersion] = useState(null);
+  const [restoring, setRestoring] = useState(false);
+  const messagesRef = useRef(null);
+  const taRef = useRef(null);
+
+  useEffect(()=>{ if(messagesRef.current) messagesRef.current.scrollTop=messagesRef.current.scrollHeight; },[messages,loading]);
+
+  // Auto-send first question if unanswered
+  useEffect(()=>{
+    const msgs = inv.messages || [];
+    const lastMsg = msgs[msgs.length - 1];
+    if(msgs.length > 0 && lastMsg?.role === 'user') callAI(msgs);
+  }, []);
+
+  function loadHistory() {
+    if(!isConfigured||!userId) return;
+    setVersionsLoading(true);
+    dbLoadVersions(inv.id)
+      .then(vs=>{ setVersions(vs); setVersionsLoading(false); })
+      .catch(e=>{ console.error(e); setVersionsLoading(false); });
+  }
+
+  function handleTabChange(t) {
+    setTab(t);
+    if(t==='history' && versions.length===0) loadHistory();
+  }
+
+  function resize(el) { el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,150)+'px'; }
+
+  function buildSystem() {
+    return `Eres ResearchLab, un asistente de investigación científica y análisis de datos.
+Respondes SIEMPRE en español. Eres preciso, citas fuentes (Banco Mundial, ONU, FMI, NASA, etc.).
+Usa formato Markdown: ## para secciones, **negrita** para datos clave, tablas para comparativas.
+Al final incluye "## 💡 Conclusiones clave" con los hallazgos más importantes.
+Para gráficos usa: [CHART:titulo|etiqueta:valor,etiqueta:valor]
+La investigación actual es sobre: "${inv.topic}"`;
+  }
+
+  async function callAI(currentMsgs) {
+    setLoading(true);
+    try {
+      const reply = await callClaude(currentMsgs, buildSystem());
+      const finalMsgs = [...currentMsgs, {role:'assistant',content:reply}];
+      setMessages(finalMsgs);
+      const summary = reply.slice(0,120)+'…';
+      onUpdate(inv.id, finalMsgs, summary);
+      // Save version snapshot
+      if(isConfigured && userId) {
+        const triggerMsg = currentMsgs.filter(m=>m.role==='user').pop()?.content || '';
+        const newCount = versionCount + 1;
+        setVersionCount(newCount);
+        dbSaveVersion(userId, inv.id, finalMsgs, summary, triggerMsg, newCount);
+        // Refresh history if open
+        if(tab==='history') loadHistory();
+      }
+    } catch(e) {
+      const err = [...currentMsgs,{role:'assistant',content:`❌ Error: ${e.message}`}];
+      setMessages(err);
+    }
+    setLoading(false);
+  }
+
+  async function send() {
+    if(!input.trim()||loading) return;
+    const userMsg = {role:'user',content:input.trim()};
+    const newMsgs = [...messages, userMsg];
+    setMessages(newMsgs); setInput('');
+    if(taRef.current) taRef.current.style.height='42px';
+    await callAI(newMsgs);
+  }
+
+  async function restoreVersion(v) {
+    if(!confirm(`¿Restaurar a la versión ${v.version_num}? Se reemplazará el estado actual.`)) return;
+    setRestoring(true);
+    setMessages(v.messages);
+    onUpdate(inv.id, v.messages, v.summary);
+    setTab('chat');
+    setRestoring(false);
+  }
+
+  return (
+    <div className="inv-chat">
+      <div className="inv-chat-header">
+        <button className="back-btn" onClick={onBack}>← Volver</button>
+        <div className="inv-chat-title">{inv.topic}</div>
+        <div style={{display:'flex',gap:'.4rem',marginLeft:'auto',alignItems:'center'}}>
+          <button className={`back-btn${tab==='chat'?' active':''}`}
+            style={tab==='chat'?{borderColor:'var(--ink)',color:'var(--ink)'}:{}}
+            onClick={()=>handleTabChange('chat')}>Chat</button>
+          <button className={`back-btn${tab==='history'?' active':''}`}
+            style={tab==='history'?{borderColor:'var(--ink)',color:'var(--ink)'}:{}}
+            onClick={()=>handleTabChange('history')}>
+            Historial {versions.length>0&&`(${versions.length})`}
+          </button>
+          <ExportMenu topic={inv.topic} messages={messages}/>
+        </div>
+      </div>
+
+      {tab==='chat' && <>
+        <div className="messages" ref={messagesRef}>
+          {messages.map((m,i)=>(
+            <div key={i} className={`msg ${m.role==='user'?'user':'ai'}`}>
+              <span className="msg-lbl">{m.role==='user'?'Tú':'ResearchLab IA'}</span>
+              {m.role==='user'
+                ? <div className="msg-bubble">{m.content}</div>
+                : <div className="msg-bubble" dangerouslySetInnerHTML={{__html:parseMarkdown(m.content)}}/>
+              }
+            </div>
+          ))}
+          {loading&&(
+            <div className="msg ai">
+              <span className="msg-lbl">ResearchLab IA</span>
+              <div className="thinking"><div className="dots"><div className="dot"/><div className="dot"/><div className="dot"/></div>Investigando…</div>
+            </div>
+          )}
+        </div>
+        <div className="chat-input-area">
+          <div className="chat-input-row">
+            <textarea ref={taRef} value={input} onChange={e=>{setInput(e.target.value);resize(e.target);}} onKeyDown={e=>{ if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();} }} placeholder="Pregunta algo o pide un análisis más profundo…" rows={1}/>
+            <button className="btn btn-primary" onClick={send} disabled={loading||!input.trim()}>{loading?<span className="spinner"/>:'↑ Enviar'}</button>
+          </div>
+        </div>
+      </>}
+
+      {tab==='history' && (
+        <div style={{flex:1,overflowY:'auto',paddingRight:'.5rem'}}>
+          {versionsLoading ? (
+            <div style={{textAlign:'center',padding:'2rem',color:'var(--muted)',fontSize:'.7rem'}}>
+              <div style={{display:'flex',justifyContent:'center',gap:'4px',marginBottom:'.5rem'}}><div className="dot"/><div className="dot"/><div className="dot"/></div>
+              Cargando historial…
+            </div>
+          ) : versions.length===0 ? (
+            <div className="version-empty">
+              <div style={{fontSize:'1.5rem',marginBottom:'.5rem',opacity:.3}}>⏱</div>
+              <p>Aún no hay versiones guardadas.</p>
+              <p style={{marginTop:'.3rem',fontSize:'.62rem'}}>Las versiones se crean automáticamente después de cada respuesta de la IA.</p>
+            </div>
+          ) : (
+            <div className="version-panel">
+              {versions.map((v, idx)=>(
+                <div key={v.id} className="version-item" onClick={()=>setExpandedVersion(expandedVersion===v.id?null:v.id)}>
+                  <div className="version-timeline">
+                    <div className={`version-dot${idx===0?' current':''}`}/>
+                    {idx<versions.length-1&&<div className="version-line"/>}
+                  </div>
+                  <div className="version-body">
+                    <div className="version-num">Versión {v.version_num}</div>
+                    <div className="version-trigger">{v.trigger_msg?.slice(0,80)||'Mensaje inicial'}{v.trigger_msg?.length>80?'…':''}</div>
+                    <div className="version-meta">
+                      <span>{fmt(v.created_at)}</span>
+                      <span>·</span>
+                      <span>{v.messages?.length||0} mensajes</span>
+                      {idx===0&&<span className="version-badge current-badge">actual</span>}
+                    </div>
+                    {expandedVersion===v.id&&(
+                      <div className="version-preview">
+                        {v.summary||'Sin resumen disponible'}
+                      </div>
+                    )}
+                    {idx>0&&(
+                      <button className="version-restore-btn" style={{marginTop:'.5rem'}}
+                        onClick={e=>{e.stopPropagation();restoreVersion(v);}}>
+                        ↩ Restaurar esta versión
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── NEW INVESTIGATION MODAL ───────────────────────────────────────────────────
+function NewInvestigationModal({ onClose, onCreate }) {
+  const [topic, setTopic] = useState('');
+  const [firstQ, setFirstQ] = useState('');
+  return (
+    <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="modal">
+        <div className="modal-title">Nueva investigación</div>
+        <div className="modal-sub">Define el tema que quieres explorar en esta sesión</div>
+        <div className="field"><label>Tema de investigación</label><input value={topic} onChange={e=>setTopic(e.target.value)} placeholder="Ej: Esperanza de vida vs gasto sanitario" autoFocus/></div>
+        <div className="field"><label>Primera pregunta (opcional)</label><input value={firstQ} onChange={e=>setFirstQ(e.target.value)} placeholder="Ej: ¿Qué países tienen mayor gasto sanitario?"/></div>
+        <div className="modal-actions">
+          <button className="btn btn-ghost" onClick={onClose}>Cancelar</button>
+          <button className="btn btn-primary" onClick={()=>topic.trim()&&onCreate(topic.trim(),firstQ.trim())} disabled={!topic.trim()}>Comenzar investigación</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── CALCULATIONS TAB ──────────────────────────────────────────────────────────
+function CalculationsTab({ project, onSaveCalc }) {
+  const [selectedSources, setSelectedSources] = useState([]);
+  const [calcType, setCalcType] = useState('cross');
+  const [prompt, setPrompt] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState(null);
+  const [saved, setSaved] = useState(project.calculations || []);
+  const [viewCalc, setViewCalc] = useState(null);
+
+  const TYPES = [
+    {id:'cross', label:'Cruzar datos'},
+    {id:'projection', label:'Proyección'},
+    {id:'correlation', label:'Correlación'},
+    {id:'formula', label:'Fórmula propia'},
+  ];
+
+  function toggleSource(id) {
+    setSelectedSources(s=>s.includes(id)?s.filter(x=>x!==id):[...s,id]);
+  }
+
+  async function runCalc() {
+    if(!prompt.trim()) return;
+    setLoading(true); setResult(null);
+    const sources = project.investigations.filter(i=>selectedSources.includes(i.id));
+    const dataContext = sources.map(s=>{
+      const lastAI = [...s.messages].reverse().find(m=>m.role==='assistant');
+      return `### Investigación: "${s.topic}"\nResumen: ${s.summary||'(sin resumen)'}\nÚltimos datos:\n${lastAI?.content?.slice(0,800)||'Sin datos aún'}`;
+    }).join('\n\n---\n\n');
+    const typeLabels = {cross:'cruce de datos entre fuentes',projection:'proyección de tendencias',correlation:'análisis de correlación estadística',formula:'cálculo con fórmula personalizada'};
+    const system = `Eres ResearchLab, motor de cálculo y análisis. SIEMPRE respondes en español.
+Usa Markdown avanzado: ## secciones, tablas, **negrita**, [CHART:titulo|etiqueta:valor,...] para gráficos.
+Realiza un ${typeLabels[calcType]} riguroso y cita metodología.
+Al final siempre incluye "## 💡 Conclusiones clave" y "## ⚠ Limitaciones" brevemente.
+${dataContext ? `\n\n## Datos disponibles de las investigaciones seleccionadas:\n${dataContext}` : ''}`;
+    try {
+      const reply = await callClaude([{role:'user',content:prompt}], system);
+      setResult(reply);
+    } catch(e) { setResult(`❌ Error: ${e.message}`); }
+    setLoading(false);
+  }
+
+  async function saveCalc() {
+    if(!result) return;
+    const calc = await onSaveCalc(
+      prompt.slice(0,60), calcType, prompt, result, selectedSources
+    );
+    if(calc) {
+      setSaved(s=>[calc,...s]);
+      setResult(null); setPrompt(''); setSelectedSources([]);
+    }
+  }
+
+  if(viewCalc) return (
+    <div>
+      <div style={{display:'flex',alignItems:'center',gap:'.8rem',marginBottom:'1.2rem'}}>
+        <button className="back-btn" onClick={()=>setViewCalc(null)}>← Volver</button>
+        <span style={{fontFamily:'Syne,sans-serif',fontWeight:700,fontSize:'.95rem',flex:1}}>{viewCalc.title}</span>
+        <span className="tag tag-calc">{viewCalc.type}</span>
+      </div>
+      <div className="calc-result">
+        <div className="calc-result-header"><div className="dot-green"/>{new Date(viewCalc.created_at).toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'})}</div>
+        <div className="calc-result-body" dangerouslySetInnerHTML={{__html:parseMarkdown(viewCalc.result)}}/>
+      </div>
+    </div>
+  );
+
+  return (
+    <div>
+      {saved.length>0&&(
+        <div style={{marginBottom:'1.5rem'}}>
+          <div style={{fontSize:'.58rem',letterSpacing:'.15em',textTransform:'uppercase',color:'var(--muted)',marginBottom:'.6rem'}}>Calculaciones guardadas</div>
+          <div className="inv-list">
+            {saved.map(c=>(
+              <div key={c.id} className="inv-item" onClick={()=>setViewCalc(c)}>
+                <div className="inv-status status-done"/>
+                <div className="inv-item-main">
+                  <div className="inv-topic">{c.title}</div>
+                  <div className="inv-preview" style={{display:'flex',gap:'.5rem',marginTop:'.3rem',alignItems:'center'}}>
+                    <span className="tag tag-calc">{c.type}</span>
+                    <span>{fmt(c.created_at)}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      <div className="calc-layout">
+        <div>
+          <div style={{fontSize:'.58rem',letterSpacing:'.15em',textTransform:'uppercase',color:'var(--muted)',marginBottom:'.6rem'}}>Nueva calculación</div>
+          <div className="calc-panel">
+            <div className="calc-panel-header">
+              <div className="calc-panel-title">Motor de Análisis IA</div>
+              <div className="calc-panel-sub">Interrelaciona datos de tus investigaciones</div>
+            </div>
+            <div className="calc-panel-body">
+              <div style={{fontSize:'.58rem',letterSpacing:'.12em',textTransform:'uppercase',color:'var(--muted)',marginBottom:'.4rem'}}>Tipo de análisis</div>
+              <div className="calc-type-grid">
+                {TYPES.map(t=><button key={t.id} className={`calc-type-btn${calcType===t.id?' active':''}`} onClick={()=>setCalcType(t.id)}>{t.label}</button>)}
+              </div>
+              <div style={{fontSize:'.58rem',letterSpacing:'.12em',textTransform:'uppercase',color:'var(--muted)',margin:'.8rem 0 .4rem'}}>Qué quieres calcular o analizar</div>
+              <textarea className="calc-textarea" value={prompt} onChange={e=>setPrompt(e.target.value)} placeholder={
+                calcType==='cross'?'Ej: Cruza los datos de esperanza de vida con el PIB per cápita y encuentra patrones…':
+                calcType==='projection'?'Ej: Proyecta la tasa de envejecimiento de España para 2030 y 2040 basándote en las tendencias actuales…':
+                calcType==='correlation'?'Ej: ¿Existe correlación entre el gasto sanitario y la longevidad? Calcula el coeficiente de correlación…':
+                'Ej: Calcula el ratio de dependencia demográfica usando la fórmula (menores+mayores)/laborales×100…'
+              }/>
+              <button className="btn btn-primary" style={{width:'100%',marginTop:'.7rem',padding:'.65rem'}} onClick={runCalc} disabled={loading||!prompt.trim()}>
+                {loading?<span style={{display:'flex',alignItems:'center',justifyContent:'center',gap:'.5rem'}}><span className="spinner"/>Calculando…</span>:'⚡ Ejecutar análisis'}
+              </button>
+            </div>
+          </div>
+          {result&&(
+            <div className="calc-result" style={{marginTop:'1rem'}}>
+              <div className="calc-result-header"><div className="dot-green"/>Resultado listo</div>
+              <div className="calc-result-body" dangerouslySetInnerHTML={{__html:parseMarkdown(result)}}/>
+              <div style={{padding:'.8rem 1rem',borderTop:'1px solid var(--rule)',display:'flex',gap:'.5rem',justifyContent:'flex-end'}}>
+                <button className="btn btn-ghost" onClick={()=>setResult(null)}>Descartar</button>
+                <button className="btn btn-primary" onClick={saveCalc}>Guardar calculación</button>
+              </div>
+            </div>
+          )}
+        </div>
+        <div>
+          <div style={{fontSize:'.58rem',letterSpacing:'.12em',textTransform:'uppercase',color:'var(--muted)',marginBottom:'.6rem'}}>Fuentes de datos ({project.investigations.length})</div>
+          {project.investigations.length===0?(
+            <div style={{background:'var(--bg)',border:'1px dashed var(--rule)',borderRadius:4,padding:'1.5rem',textAlign:'center',fontSize:'.68rem',color:'var(--muted)'}}>
+              Añade investigaciones al proyecto para poder cruzar sus datos aquí
+            </div>
+          ):(
+            <div className="data-source-list">
+              {project.investigations.map(inv=>(
+                <div key={inv.id} className={`data-source-item${selectedSources.includes(inv.id)?' selected':''}`} onClick={()=>toggleSource(inv.id)}>
+                  <div className="ds-check">{selectedSources.includes(inv.id)&&'✓'}</div>
+                  <div style={{flex:1}}>
+                    <div className="ds-name">{inv.topic}</div>
+                    <div className="ds-preview">{inv.messages?.length||0} mensajes · {fmt(inv.created_at)}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {selectedSources.length>0&&<div style={{marginTop:'.6rem',fontSize:'.6rem',color:'var(--green)'}}>✓ {selectedSources.length} fuente{selectedSources.length>1?'s':''} seleccionada{selectedSources.length>1?'s':''}</div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── SUPABASE DATA LAYER ───────────────────────────────────────────────────────
+async function dbLoadProjects(userId) {
+  const { data: projects, error } = await supabase
+    .from('projects').select('*').eq('user_id', userId).order('created_at', { ascending: false });
+  if (error) throw error;
+  const full = await Promise.all(projects.map(async p => {
+    const [{ data: investigations }, { data: calculations }] = await Promise.all([
+      supabase.from('investigations').select('*').eq('project_id', p.id).order('created_at', { ascending: false }),
+      supabase.from('calculations').select('*').eq('project_id', p.id).order('created_at', { ascending: false }),
+    ]);
+    return { ...p, investigations: investigations||[], calculations: calculations||[] };
+  }));
+  return full;
+}
+async function dbCreateProject(userId, name, description) {
+  const { data, error } = await supabase.from('projects')
+    .insert({ user_id: userId, name, description }).select().single();
+  if (error) throw error;
+  return { ...data, investigations:[], calculations:[] };
+}
+async function dbCreateInvestigation(userId, projectId, topic, messages) {
+  const { data, error } = await supabase.from('investigations')
+    .insert({ user_id: userId, project_id: projectId, topic, messages, summary:'Nueva investigación' }).select().single();
+  if (error) throw error;
+  return data;
+}
+async function dbUpdateInvestigation(invId, messages, summary) {
+  const { error } = await supabase.from('investigations')
+    .update({ messages, summary }).eq('id', invId);
+  if (error) throw error;
+}
+async function dbUpdateProjectFields(projectId, name, description) {
+  const { error } = await supabase.from('projects')
+    .update({ name, description }).eq('id', projectId);
+  if (error) throw error;
+}
+async function dbDeleteProject(projectId) {
+  const { error } = await supabase.from('projects')
+    .delete().eq('id', projectId);
+  if (error) throw error;
+}
+async function dbCreateCalculation(userId, projectId, title, type, prompt, result, sources) {
+  const { data, error } = await supabase.from('calculations')
+    .insert({ user_id: userId, project_id: projectId, title, type, prompt, result, sources }).select().single();
+  if (error) throw error;
+  return data;
+}
+
+// ── SHARING DB ───────────────────────────────────────────────────────────────
+function generateSlug() {
+  return Math.random().toString(36).slice(2,8) + Math.random().toString(36).slice(2,8);
+}
+async function dbToggleShare(projectId, enable) {
+  if (enable) {
+    const slug = generateSlug();
+    const { data, error } = await supabase.from('projects')
+      .update({ is_public: true, public_slug: slug })
+      .eq('id', projectId).select('public_slug').single();
+    if (error) throw error;
+    return data.public_slug;
+  } else {
+    const { error } = await supabase.from('projects')
+      .update({ is_public: false, public_slug: null })
+      .eq('id', projectId);
+    if (error) throw error;
+    return null;
+  }
+}
+
+// ── VERSIONS DB ──────────────────────────────────────────────────────────────
+async function dbSaveVersion(userId, invId, messages, summary, triggerMsg, versionNum) {
+  const { error } = await supabase.from('investigation_versions').insert({
+    investigation_id: invId,
+    user_id: userId,
+    messages,
+    summary,
+    trigger_msg: triggerMsg,
+    version_num: versionNum,
+  });
+  if (error) console.error('Version save error:', error);
+}
+async function dbLoadVersions(invId) {
+  const { data, error } = await supabase
+    .from('investigation_versions')
+    .select('*')
+    .eq('investigation_id', invId)
+    .order('version_num', { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+// ── PROFILE DB ───────────────────────────────────────────────────────────────
+async function dbLoadProfile(userId) {
+  const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).single();
+  if (error && error.code !== 'PGRST116') throw error;
+  return data;
+}
+async function dbUpsertProfile(userId, fields) {
+  const { error } = await supabase.from('profiles').upsert({ id: userId, ...fields });
+  if (error) throw error;
+}
+async function dbUploadAvatar(userId, file) {
+  const ext = file.name.split('.').pop();
+  const path = `${userId}/avatar.${ext}`;
+  const { error } = await supabase.storage.from('avatars').upload(path, file, { upsert: true });
+  if (error) throw error;
+  const { data } = supabase.storage.from('avatars').getPublicUrl(path);
+  return data.publicUrl + '?t=' + Date.now();
+}
+
+// ── SHARE MODAL ──────────────────────────────────────────────────────────────
+function ShareModal({ project, onClose, onUpdate }) {
+  const [isPublic, setIsPublic] = useState(project.is_public || false);
+  const [slug, setSlug] = useState(project.public_slug || '');
+  const [loading, setLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const shareUrl = slug
+    ? `https://siraxelloid1460.github.io/ResearchLab/share.html?s=${slug}`
+    : '';
+
+  async function toggle(val) {
+    setLoading(true);
+    try {
+      const newSlug = await dbToggleShare(project.id, val);
+      setIsPublic(val);
+      setSlug(newSlug || '');
+      onUpdate({ ...project, is_public: val, public_slug: newSlug });
+    } catch(e) { alert('Error: '+e.message); }
+    setLoading(false);
+  }
+
+  function copyLink() {
+    navigator.clipboard.writeText(shareUrl);
+    setCopied(true);
+    setTimeout(()=>setCopied(false), 2000);
+  }
+
+  return (
+    <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="modal">
+        <div className="modal-title">Compartir proyecto</div>
+        <div className="modal-sub">Genera un link público de solo lectura para "{project.name}"</div>
+
+        <div className="share-toggle">
+          <div className="share-toggle-label">
+            Acceso público
+            <small>{isPublic ? 'Cualquiera con el link puede ver este proyecto' : 'Solo tú puedes ver este proyecto'}</small>
+          </div>
+          <label className="toggle-switch">
+            <input type="checkbox" checked={isPublic} disabled={loading}
+              onChange={e=>toggle(e.target.checked)}/>
+            <span className="toggle-slider"></span>
+          </label>
+        </div>
+
+        {isPublic && slug && (
+          <>
+            <div style={{fontSize:'.62rem',color:'var(--muted)',marginBottom:'.4rem'}}>Link público</div>
+            <div className="share-link-box">
+              <input className="share-link-input" value={shareUrl} readOnly onClick={e=>e.target.select()}/>
+              <button className={`copy-btn${copied?' copied':''}`} onClick={copyLink}>
+                {copied ? '✓ Copiado' : 'Copiar'}
+              </button>
+            </div>
+            <div style={{fontSize:'.6rem',color:'var(--muted)',lineHeight:1.6}}>
+              Las investigaciones y calculaciones son visibles. Los datos personales no se comparten.
+            </div>
+          </>
+        )}
+
+        <div className="modal-actions">
+          <button className="btn btn-ghost" onClick={onClose}>Cerrar</button>
+          {isPublic && slug && (
+            <a href={shareUrl} target="_blank" rel="noopener noreferrer" className="btn btn-primary"
+              style={{textDecoration:'none'}}>Ver como público →</a>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── PROJECT PAGE ──────────────────────────────────────────────────────────────
+function ProjectPage({ project, onBack, onUpdate, onCreateInv, onUpdateInv, onCreateCalc, userId }) {
+  const [tab, setTab] = useState('investigations');
+  const [showNewInv, setShowNewInv] = useState(false);
+  const [showShare, setShowShare] = useState(false);
+  const [activeInv, setActiveInv] = useState(null);
+  const [proj, setProj] = useState(project);
+  const [saving, setSaving] = useState(false);
+
+  async function createInvestigation(topic, firstQ) {
+    setSaving(true);
+    const msgs = firstQ ? [{role:'user',content:firstQ}] : [];
+    try {
+      const inv = await onCreateInv(proj.id, topic, msgs);
+      const updated = { ...proj, investigations:[inv,...(proj.investigations||[])] };
+      setProj(updated); onUpdate(updated);
+      setShowNewInv(false);
+      setActiveInv(inv);
+      setTab('investigations');
+    } catch(e) { alert('Error al crear investigación: '+e.message); }
+    setSaving(false);
+  }
+
+  async function updateInvestigation(id, messages, summary) {
+    const invs = proj.investigations.map(i=>i.id===id?{...i,messages,summary}:i);
+    const updated = {...proj, investigations:invs};
+    setProj(updated); onUpdate(updated);
+    try { await onUpdateInv(id, messages, summary); } catch(e) { console.error(e); }
+  }
+
+  async function saveCalculation(title, type, prompt, result, sources) {
+    try {
+      const calc = await onCreateCalc(proj.id, title, type, prompt, result, sources);
+      const updated = {...proj, calculations:[calc,...(proj.calculations||[])]};
+      setProj(updated); onUpdate(updated);
+      return calc;
+    } catch(e) { alert('Error al guardar: '+e.message); }
+  }
+
+  const invs = proj.investigations||[];
+
+  return (
+    <div className="project-page">
+      <div className="project-header">
+        <div className="project-title-area">
+          <div className="breadcrumb"><button onClick={onBack}>Proyectos</button><span>›</span><span>{proj.name}</span></div>
+          <div className="project-page-title">{proj.name}</div>
+          {proj.description&&<div className="project-desc">{proj.description}</div>}
+        </div>
+        <div style={{display:'flex',gap:'.5rem'}}>
+          <button className="btn btn-ghost" onClick={()=>setShowShare(true)} title="Compartir proyecto">
+            ↗ Compartir
+          </button>
+          {tab==='investigations'&&<button className="btn btn-primary" onClick={()=>setShowNewInv(true)}>+ Nueva investigación</button>}
+        </div>
+      </div>
+      <div className="tabs">
+        <button className={`tab${tab==='investigations'?' active':''}`} onClick={()=>{setTab('investigations');setActiveInv(null);}}>
+          Investigaciones ({invs.length})
+        </button>
+        <button className={`tab${tab==='calculations'?' active':''}`} onClick={()=>setTab('calculations')}>
+          Calculaciones ({(proj.calculations||[]).length})
+        </button>
+      </div>
+      <div className="tab-content">
+        {tab==='investigations'&&(
+          activeInv
+            ? <InvestigationChat inv={activeInv} onBack={()=>setActiveInv(null)} onUpdate={updateInvestigation} userId={userId}/>
+            : <>
+                {invs.length===0
+                  ? <div className="empty-state"><div className="big">🔬</div><p>Aún no hay investigaciones en este proyecto</p><button className="btn btn-primary" onClick={()=>setShowNewInv(true)}>+ Añadir primera investigación</button></div>
+                  : <div className="inv-list">
+                      {invs.map(inv=>(
+                        <div key={inv.id} className="inv-item" onClick={()=>setActiveInv(inv)}>
+                          <div className={`inv-status ${inv.messages?.length>1?'status-done':'status-wip'}`}/>
+                          <div className="inv-item-main">
+                            <div className="inv-topic">{inv.topic}</div>
+                            <div className="inv-preview">{inv.summary||'Sin resumen aún'}</div>
+                          </div>
+                          <div className="inv-date">{fmt(inv.created_at)}</div>
+                        </div>
+                      ))}
+                    </div>
+                }
+              </>
+        )}
+        {tab==='calculations'&&<CalculationsTab project={proj} onSaveCalc={saveCalculation}/>}
+      </div>
+      {showNewInv&&<NewInvestigationModal onClose={()=>setShowNewInv(false)} onCreate={createInvestigation} saving={saving}/>}
+      {showShare&&<ShareModal project={proj} onClose={()=>setShowShare(false)} onUpdate={p=>{setProj(p);onUpdate(p);}}/>}
+    </div>
+  );
+}
+
+// ── EDIT PROJECT MODAL ───────────────────────────────────────────────────────
+function EditProjectModal({ project, onClose, onSave }) {
+  const [name, setName] = useState(project.name);
+  const [desc, setDesc] = useState(project.description||'');
+  return (
+    <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="modal">
+        <div className="modal-title">Editar proyecto</div>
+        <div className="modal-sub">Cambia el nombre o la descripción</div>
+        <div className="field"><label>Nombre</label><input value={name} onChange={e=>setName(e.target.value)} autoFocus/></div>
+        <div className="field"><label>Descripción</label><input value={desc} onChange={e=>setDesc(e.target.value)} placeholder="Descripción opcional…"/></div>
+        <div className="modal-actions">
+          <button className="btn btn-ghost" onClick={onClose}>Cancelar</button>
+          <button className="btn btn-primary" onClick={()=>name.trim()&&onSave(name.trim(),desc.trim())} disabled={!name.trim()}>Guardar cambios</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── CONFIRM DELETE MODAL ──────────────────────────────────────────────────────
+function ConfirmDeleteModal({ project, onClose, onConfirm }) {
+  return (
+    <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="modal">
+        <div className="modal-title">Eliminar proyecto</div>
+        <div className="modal-sub" style={{color:'var(--accent)'}}>Esta acción no se puede deshacer</div>
+        <p style={{fontSize:'.73rem',lineHeight:1.6,margin:'.5rem 0 0'}}>
+          ¿Seguro que quieres eliminar <strong>"{project.name}"</strong>?
+          Se borrarán también todas sus investigaciones y calculaciones.
+        </p>
+        <div className="modal-actions">
+          <button className="btn btn-ghost" onClick={onClose}>Cancelar</button>
+          <button className="btn btn-danger" onClick={onConfirm} style={{background:'var(--accent)',color:'white',borderColor:'var(--accent)'}}>Sí, eliminar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── DASHBOARD ──────────────────────────────────────────────────────────────────
+function Dashboard({ user, projects, onNewProject, onSelectProject, onEditProject, onDeleteProject }) {
+  const [editingProject, setEditingProject] = useState(null);
+  const [deletingProject, setDeletingProject] = useState(null);
+
+  return (
+    <div className="dashboard">
+      {!isConfigured&&<SetupNotice/>}
+      <div className="page-header">
+        <div>
+          <div className="page-title">Mis <span>proyectos</span></div>
+          <div style={{fontSize:'.62rem',color:'var(--muted)',marginTop:'.3rem'}}>Hola, {profile?.name||user?.email?.split('@')[0]||'investigador'}</div>
+        </div>
+        <button className="btn btn-primary" onClick={onNewProject}>+ Nuevo proyecto</button>
+      </div>
+      {projects.length===0
+        ? <div className="empty-state"><div className="big">📁</div><p>Crea tu primer proyecto de investigación</p><button className="btn btn-primary" onClick={onNewProject}>+ Crear proyecto</button></div>
+        : <div className="projects-grid">
+            {projects.map(p=>(
+              <div key={p.id} className="project-card" onClick={()=>onSelectProject(p)}>
+                <div className="project-card-header">
+                  <div className="project-name">{p.name}</div>
+                  <div className="project-card-actions" onClick={e=>e.stopPropagation()}>
+                    <button className="card-action-btn" title="Editar" onClick={()=>setEditingProject(p)}>✎</button>
+                    <button className="card-action-btn danger" title="Eliminar" onClick={()=>setDeletingProject(p)}>✕</button>
+                  </div>
+                </div>
+                {p.description&&<div className="project-meta">{p.description}</div>}
+                <div className="project-meta" style={{marginBottom:'.6rem'}}>{fmt(p.created_at)}</div>
+                <div className="project-stats">
+                  <span className="stat-badge stat-inv">{(p.investigations||[]).length} invest.</span>
+                  <span className="stat-badge stat-calc">{(p.calculations||[]).length} calc.</span>
+                </div>
+              </div>
+            ))}
+            <div className="new-project-card" onClick={onNewProject}>
+              <span style={{fontSize:'1.5rem',opacity:.4}}>+</span>
+              <span>Nuevo proyecto</span>
+            </div>
+          </div>
+      }
+      {editingProject&&(
+        <EditProjectModal
+          project={editingProject}
+          onClose={()=>setEditingProject(null)}
+          onSave={(name,desc)=>{ onEditProject(editingProject.id,name,desc); setEditingProject(null); }}
+        />
+      )}
+      {deletingProject&&(
+        <ConfirmDeleteModal
+          project={deletingProject}
+          onClose={()=>setDeletingProject(null)}
+          onConfirm={()=>{ onDeleteProject(deletingProject.id); setDeletingProject(null); }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── USER MENU ─────────────────────────────────────────────────────────────────
+// ── PROFILE MODAL ────────────────────────────────────────────────────────────
+function ProfileModal({ user, onClose }) {
+  const [profile, setProfile] = useState(null);
+  const [name, setName] = useState('');
+  const [bio, setBio] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const fileRef = useRef(null);
+
+  useEffect(()=>{
+    if(!user||!isConfigured) return;
+    dbLoadProfile(user.id).then(p=>{
+      if(p) {
+        setProfile(p);
+        setName(p.name||'');
+        setBio(p.bio||'');
+        setAvatarUrl(p.avatar_url||'');
+      } else {
+        setName(user.email?.split('@')[0]||'');
+      }
+    }).catch(console.error);
+  },[user]);
+
+  async function handleSave() {
+    setSaving(true); setSaved(false);
+    try {
+      await dbUpsertProfile(user.id, { name, bio, avatar_url: avatarUrl });
+      setSaved(true);
+      setTimeout(()=>setSaved(false), 2500);
+    } catch(e) { alert('Error: '+e.message); }
+    setSaving(false);
+  }
+
+  async function handleAvatarClick() { fileRef.current?.click(); }
+
+  async function handleFileChange(e) {
+    const file = e.target.files?.[0];
+    if(!file) return;
+    if(file.size > 2*1024*1024) { alert('El archivo debe ser menor de 2MB'); return; }
+    setUploading(true);
+    try {
+      const url = await dbUploadAvatar(user.id, file);
+      setAvatarUrl(url);
+      await dbUpsertProfile(user.id, { name, bio, avatar_url: url });
+    } catch(e) { alert('Error al subir imagen: '+e.message); }
+    setUploading(false);
+  }
+
+  const initial = (name?.[0]||user?.email?.[0]||'U').toUpperCase();
+
+  return (
+    <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="modal profile-modal">
+        <div className="modal-title">Mi perfil</div>
+        <div className="modal-sub">Personaliza cómo apareces en ResearchLab</div>
+
+        <div className="profile-avatar-section">
+          <div className={`profile-avatar-big${avatarUrl?' avatar-has-img':''}`} onClick={handleAvatarClick}>
+            {avatarUrl ? <img src={avatarUrl} alt="avatar"/> : initial}
+            <div className="avatar-overlay">{uploading?'…':'cambiar'}</div>
+          </div>
+          <input ref={fileRef} type="file" accept="image/*" style={{display:'none'}} onChange={handleFileChange}/>
+          <div className="profile-avatar-info">
+            <strong style={{fontFamily:'Syne,sans-serif',fontWeight:700,fontSize:'.85rem'}}>{name||user?.email?.split('@')[0]||'Usuario'}</strong>
+            <p>{user?.email}</p>
+            <p style={{marginTop:'.4rem'}}>Haz clic en el avatar para cambiar la foto. Máx 2MB.</p>
+          </div>
+        </div>
+
+        <div className="field">
+          <label>Nombre</label>
+          <input value={name} onChange={e=>setName(e.target.value)} placeholder="Tu nombre o alias"/>
+        </div>
+        <div className="field">
+          <label>Bio</label>
+          <input value={bio} onChange={e=>setBio(e.target.value)} placeholder="Investigador, analista de datos, curioso…"/>
+        </div>
+
+        <div className="modal-actions">
+          <button className="btn btn-ghost" onClick={onClose}>Cerrar</button>
+          <div className="profile-save-row">
+            {saved&&<span className="profile-saved">✓ Guardado</span>}
+            <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
+              {saving?<span style={{display:'flex',alignItems:'center',gap:'.4rem'}}><span className="spinner"/>Guardando…</span>:'Guardar cambios'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── USER MENU ─────────────────────────────────────────────────────────────────
+function UserMenu({ user, profile, onSignOut }) {
+  const [open, setOpen] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(()=>{
+    function handleClick(e) { if(ref.current && !ref.current.contains(e.target)) setOpen(false); }
+    document.addEventListener('mousedown', handleClick);
+    return ()=>document.removeEventListener('mousedown', handleClick);
+  },[]);
+
+  const displayName = profile?.name || user?.email?.split('@')[0] || 'Usuario';
+  const initial = (displayName?.[0]||'U').toUpperCase();
+  const avatarUrl = profile?.avatar_url;
+
+  return (
+    <>
+      <div className="user-menu-wrap" ref={ref}>
+        <div className={`avatar${avatarUrl?' avatar-has-img':''}`}
+          onClick={()=>setOpen(o=>!o)}
+          style={{cursor:'pointer', background: avatarUrl?'transparent':undefined, padding:0, overflow:'hidden'}}
+          title="Menú de usuario">
+          {avatarUrl
+            ? <img src={avatarUrl} alt={displayName} style={{width:'100%',height:'100%',objectFit:'cover',borderRadius:'50%'}}/>
+            : initial
+          }
+        </div>
+        {open&&(
+          <div className="user-menu-dropdown">
+            <div className="user-menu-info">
+              <strong>{displayName}</strong>
+              {user?.email&&<span>{user.email}</span>}
+              {profile?.bio&&<span style={{marginTop:'.2rem',display:'block',fontStyle:'italic'}}>{profile.bio}</span>}
+            </div>
+            <button className="user-menu-item" onClick={()=>{ setOpen(false); setShowProfile(true); }}>
+              <span>◎</span> Mi perfil
+            </button>
+            <button className="user-menu-item danger" onClick={()=>{ setOpen(false); onSignOut(); }}>
+              <span>⎋</span> Cerrar sesión
+            </button>
+          </div>
+        )}
+      </div>
+      {showProfile&&<ProfileModal user={user} onClose={()=>setShowProfile(false)}/>}
+    </>
+  );
+}
+
+// ── ROOT APP ──────────────────────────────────────────────────────────────────
+function App() {
+  const [user, setUser] = useState(null);
+  const [projects, setProjects] = useState([]);
+  const [activeProject, setActiveProject] = useState(null);
+  const [showNewProject, setShowNewProject] = useState(false);
+  const [demoMode, setDemoMode] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [dataLoading, setDataLoading] = useState(false);
+  const [dbError, setDbError] = useState(null);
+  const [profile, setProfile] = useState(null);
+
+  useEffect(()=>{
+    if(!isConfigured){ setAuthLoading(false); return; }
+    let sub;
+
+    supabasePromise.then(async ()=>{
+      // Fix double-hash bug: GitHub Pages + Supabase OAuth produces ##access_token
+      // Strip extra leading hashes so Supabase can parse the token
+      const rawHash = window.location.hash;
+      if(rawHash.startsWith('##') || rawHash.startsWith('#%23')) {
+        const cleanHash = '#' + rawHash.replace(/^#+/, '');
+        window.history.replaceState(null, '', window.location.pathname + cleanHash);
+      }
+
+      // If there's an access_token in the hash, parse and set the session manually
       const hash = window.location.hash.replace(/^#+/, '');
       if(hash.includes('access_token')) {
         const params = new URLSearchParams(hash);
@@ -507,12 +1752,18 @@ if (isConfigured && window.__createSupabaseClient) {
       </div>
     </div>
   );
-  if(!user&&!demoMode) return <AuthPage onDemoMode={()=>setDemoMode(true)}/>;\n\n  return (\n    <div className="app">\n      <header className="header">\n        <div className="logo">Research<span>Lab</span></div>
+  if(!user&&!demoMode) return <AuthPage onDemoMode={()=>setDemoMode(true)}/>;
+
+  return (
+    <div className="app">
+      <header className="header">
+        <div className="logo">Research<span>Lab</span></div>
         <div className="header-right">
           <a href="./forum.html" style={{fontSize:'.65rem',color:'var(--muted)',textDecoration:'none',letterSpacing:'.05em',transition:'color .15s'}} onMouseOver={e=>e.target.style.color='var(--ink)'} onMouseOut={e=>e.target.style.color='var(--muted)'}>Foro</a>
           {demoMode&&<span style={{fontSize:'.58rem',background:'rgba(212,130,15,.1)',color:'var(--amber)',border:'1px solid rgba(212,130,15,.25)',padding:'.2rem .5rem',borderRadius:2,letterSpacing:'.08em'}}>DEMO</span>}
           {activeProject&&<button className="btn btn-ghost" onClick={()=>setActiveProject(null)}>← Proyectos</button>}
-          <UserMenu user={user} profile={profile} onSignOut={signOut}/>\n        </div>
+          <UserMenu user={user} profile={profile} onSignOut={signOut}/>
+        </div>
       </header>
       {dbError&&(
         <div style={{background:'rgba(201,79,44,.08)',border:'1px solid rgba(201,79,44,.25)',color:'var(--accent)',padding:'.5rem 1.6rem',fontSize:'.65rem',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
@@ -534,9 +1785,12 @@ if (isConfigured && window.__createSupabaseClient) {
           onUpdateInv={handleUpdateInv}
           onCreateCalc={handleCreateCalc}
           userId={user?.id}
-        />\n      ) : (\n        <Dashboard user={user} projects={projects} onNewProject={()=>setShowNewProject(true)} onSelectProject={p=>setActiveProject(p)} onEditProject={editProject} onDeleteProject={deleteProject} onSignOut={signOut}/>
+        />
+      ) : (
+        <Dashboard user={user} projects={projects} onNewProject={()=>setShowNewProject(true)} onSelectProject={p=>setActiveProject(p)} onEditProject={editProject} onDeleteProject={deleteProject} onSignOut={signOut}/>
       )}
-      {showNewProject&&<NewProjectModal onClose={()=>setShowNewProject(false)} onCreate={createProject}/>}\n    </div>
+      {showNewProject&&<NewProjectModal onClose={()=>setShowNewProject(false)} onCreate={createProject}/>}
+    </div>
   );
 }
 
