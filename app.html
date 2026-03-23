@@ -1619,8 +1619,9 @@ function App() {
         window.history.replaceState(null, '', window.location.pathname + cleanHash);
       }
 
-      // If there's an access_token in the hash, parse and set the session manually
+      // Handle OAuth hash token if present
       const hash = window.location.hash.replace(/^#+/, '');
+      let sessionHandled = false;
       if(hash.includes('access_token')) {
         const params = new URLSearchParams(hash);
         const accessToken = params.get('access_token');
@@ -1634,31 +1635,33 @@ function App() {
             window.history.replaceState(null, '', window.location.pathname);
             setUser(sessionData.session.user);
             setAuthLoading(false);
-            return;
+            sessionHandled = true;
           }
         }
       }
 
-      // Normal auth listener for subsequent events
-      const { data } = supabase.auth.onAuthStateChange((event, s)=>{
-        if(event === 'SIGNED_OUT') {
-          window.history.replaceState(null, '', window.location.pathname);
-          setUser(null); setProjects([]); setActiveProject(null);
-          setShowNewProject(false); setDemoMode(false); setDataLoading(false);
-        } else if(event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') {
-          if(window.location.hash) window.history.replaceState(null, '', window.location.pathname);
-          setUser(s?.user || null);
-          setAuthLoading(false);
-        }
-      });
-      sub = data.subscription;
+      if(!sessionHandled) {
+        // Normal auth listener for subsequent events
+        const { data } = supabase.auth.onAuthStateChange((event, s)=>{
+          if(event === 'SIGNED_OUT') {
+            window.history.replaceState(null, '', window.location.pathname);
+            setUser(null); setProjects([]); setActiveProject(null);
+            setShowNewProject(false); setDemoMode(false); setDataLoading(false);
+          } else if(event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') {
+            if(window.location.hash) window.history.replaceState(null, '', window.location.pathname);
+            setUser(s?.user || null);
+            setAuthLoading(false);
+          }
+        });
+        sub = data.subscription;
 
-      const { data: { session } } = await supabase.auth.getSession();
-      if(session) {
-        if(window.location.hash) window.history.replaceState(null, '', window.location.pathname);
-        setUser(session.user);
+        const { data: { session } } = await supabase.auth.getSession();
+        if(session) {
+          if(window.location.hash) window.history.replaceState(null, '', window.location.pathname);
+          setUser(session.user);
+        }
+        setAuthLoading(false);
       }
-      setAuthLoading(false);
     }).catch(e=>{ console.error(e); setAuthLoading(false); });
 
     return ()=>sub?.unsubscribe();
