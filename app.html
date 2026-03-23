@@ -605,8 +605,7 @@ function messagesToMarkdown(topic, messages) {
       lines.push('');
     }
   });
-  return lines.join('
-');
+  return lines.join('\n');
 }
 
 function downloadMarkdown(topic, messages) {
@@ -642,17 +641,13 @@ function downloadPDF(topic, messages) {
 ((?:\|.+\|
 ?)+)/g, (_, hd, rows) => {
         const ths = hd.split('|').filter(Boolean).map(c=>`<th>${c.trim()}</th>`).join('');
-        const trs = rows.trim().split('
-').map(r => {
+        const trs = rows.trim().split('\n').map(r => {
           const tds = r.split('|').filter(Boolean).map(c=>`<td>${c.trim()}</td>`).join('');
           return `<tr>${tds}</tr>`;
         }).join('');
         return `<table><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table>`;
       });
-      html = html.split('
-
-').map(b => b.startsWith('<') ? b : `<p>${b.replace(/
-/g,'<br>')}</p>`).join('');
+      html = html.split('\n\n').map(b => b.startsWith('<') ? b : `<p>${b.replace(/\n/g,'<br>')}</p>`).join('');
       body += `<div class="a-block">${html}</div>`;
     }
   });
